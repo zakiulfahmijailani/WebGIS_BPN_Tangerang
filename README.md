@@ -67,6 +67,14 @@ A production-ready WebGIS application for visualizing building footprints in Tan
    ```
    The application will be available at `http://localhost:5173`.
 
+## 🚀 Deployment to Vercel
+
+1.  Push your code to a GitHub repository.
+2.  Connect the repository to **Vercel**.
+3.  Add the following **Environment Variable** in Vercel settings:
+    - `DATABASE_URL`: Your Supabase connection string.
+4.  Vercel will automatically detect the `vercel.json` and deploy both the frontend and backend under a single URL.
+
 ## 📍 API Endpoints
 
 - `GET /api/buildings`: Returns building footprints as a GeoJSON FeatureCollection.

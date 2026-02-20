@@ -10,7 +10,7 @@ function App() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/buildings';
+                const apiUrl = '/api/buildings';
                 const response = await fetch(apiUrl);
                 if (!response.ok) {
                     throw new Error(`Failed to fetch: ${response.statusText}`);

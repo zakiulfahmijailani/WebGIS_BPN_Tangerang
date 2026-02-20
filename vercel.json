@@ -2,8 +2,8 @@
     "version": 2,
     "builds": [
         {
-            "src": "api/index.py",
-            "use": "@vercel/python"
+            "src": "backend/index.js",
+            "use": "@vercel/node"
         },
         {
             "src": "frontend/package.json",
@@ -13,17 +13,14 @@
             }
         }
     ],
-    "routes": [
+    "rewrites": [
         {
-            "src": "/api/(.*)",
-            "dest": "api/index.py"
+            "source": "/api/(.*)",
+            "destination": "backend/index.js"
         },
         {
-            "handle": "filesystem"
-        },
-        {
-            "src": "/(.*)",
-            "dest": "frontend/$1"
+            "source": "/(.*)",
+            "destination": "/frontend/$1"
         }
     ]
 }
