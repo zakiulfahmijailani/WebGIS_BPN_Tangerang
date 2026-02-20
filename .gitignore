@@ -3,13 +3,18 @@ __pycache__/
 *.pyc
 *.pyo
 *.db
+.venv/
+venv/
 
-# Environment
+# Environment (PENTING: jangan commit password)
 .env
+.env.local
+backend/.env
 
 # Node
 node_modules/
 dist/
+.vite/
 
 # OS
 .DS_Store
@@ -23,17 +28,3 @@ Thumbs.db
 # Build artifacts
 *.log
 test_report.png
-
-# Python Virtual Environment
-.venv/
-venv/
-__pycache__/
-
-# Frontend Node Modules
-node_modules/
-.next/
-
-# Environment Variables (SANGAT PENTING agar password tidak bocor)
-.env
-.env.local
-
