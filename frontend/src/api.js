@@ -6,12 +6,26 @@ const api = axios.create({
 });
 
 /**
- * Fetch healthcare points as GeoJSON FeatureCollection.
- * @param {string} [amenity] - Optional filter by amenity type
+ * Fetch buildings GeoJSON FeatureCollection.
  */
-export async function getHealthcare(amenity) {
-    const params = amenity ? { amenity } : {};
-    const res = await api.get('/api/healthcare', { params });
+export async function getBuildings() {
+    const res = await api.get('/api/buildings');
+    return res.data;
+}
+
+/**
+ * Fetch geospatial metrics from the backend.
+ */
+export async function getMetrics() {
+    const res = await api.get('/api/metrics');
+    return res.data;
+}
+
+/**
+ * Send a message to the AI Chatbot.
+ */
+export async function postChat(message) {
+    const res = await api.post('/api/chat', { message });
     return res.data;
 }
 

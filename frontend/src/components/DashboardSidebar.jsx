@@ -1,64 +1,171 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
+} from 'recharts';
+import {
+    LayoutDashboard, MessageSquare, Send, Building, Maximize2, Activity
+} from 'lucide-react';
+import { getMetrics, postChat } from '../api';
 
-const DashboardSidebar = ({ geoData, loading, error }) => {
-    const buildingCount = geoData?.features?.length || 0;
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+
+export default function DashboardSidebar() {
+    const [activeTab, setActiveTab] = useState('metrics');
+    const [metrics, setMetrics] = useState(null);
+    const [messages, setMessages] = useState([
+        { role: 'ai', text: 'Hello! I am your Tangerang WebGIS Assistant. How can I help you today?' }
+    ]);
+    const [inputMessage, setInputMessage] = useState('');
+    const [isTyping, setIsTyping] = useState(false);
+    const chatEndRef = useRef(null);
+
+    // Auto-scroll chat
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, isTyping]);
+
+    // Load metrics data
+    useEffect(() => {
+        const fetchMetrics = async () => {
+            try {
+                const data = await getMetrics();
+                setMetrics(data);
+            } catch (err) {
+                console.error('Failed to load metrics:', err);
+            }
+        };
+        fetchMetrics();
+    }, []);
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!inputMessage.trim()) return;
+
+        const userMsg = inputMessage;
+        setInputMessage('');
+        setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+        setIsTyping(true);
+
+        try {
+            const data = await postChat(userMsg);
+            setMessages(prev => [...prev, { role: 'ai', text: data.response }]);
+        } catch (err) {
+            setMessages(prev => [...prev, { role: 'ai', text: 'Error connecting to chatbot server.' }]);
+        } finally {
+            setIsTyping(false);
+        }
+    };
 
     return (
-        <div className="w-[300px] h-full bg-slate-900 text-white p-6 shadow-2xl z-[1000] flex flex-col border-r border-slate-800">
-            <div className="mb-10">
-                <h1 className="text-xl font-extrabold tracking-tight text-white mb-1">
-                    TANGERANG <span className="text-emerald-500">GIS</span>
-                </h1>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-widest">Building Footprints</p>
+        <div className="sidebar">
+            {/* Tab Navigation */}
+            <div className="sidebar-header">
+                <button
+                    className={`tab-btn ${activeTab === 'metrics' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('metrics')}
+                >
+                    <LayoutDashboard size={18} />
+                    <span>Metrics</span>
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('chat')}
+                >
+                    <MessageSquare size={18} />
+                    <span>AI Chat</span>
+                </button>
             </div>
 
-            <div className="flex-1 space-y-8">
-                <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 block">Data Status</label>
-                    {loading ? (
-                        <div className="flex items-center space-x-3 text-slate-400">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
-                            <span className="text-sm font-medium">Fetching layers...</span>
-                        </div>
-                    ) : error ? (
-                        <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-lg">
-                            <p className="text-xs text-red-400 leading-relaxed font-medium">{error}</p>
-                        </div>
-                    ) : (
-                        <div className="flex items-center space-x-3 text-emerald-400">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                            <span className="text-sm font-medium">System Online</span>
-                        </div>
-                    )}
-                </div>
+            <div className="sidebar-content">
+                {activeTab === 'metrics' ? (
+                    <div className="metrics-section">
+                        <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <Activity size={20} className="text-blue-500" />
+                            Spatial Insights
+                        </h2>
 
-                <div className="bg-slate-800/40 border border-slate-700/50 p-5 rounded-xl backdrop-blur-sm">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 block">Metrics</label>
-                    <div className="flex flex-col">
-                        <span className="text-3xl font-bold text-white mb-1">
-                            {loading ? '---' : buildingCount.toLocaleString()}
-                        </span>
-                        <span className="text-xs text-slate-400 font-medium">Buildings Loaded</span>
+                        <div className="metric-card">
+                            <h3>Total Buildings</h3>
+                            <div className="flex items-center gap-3">
+                                <Building className="text-blue-500" size={24} />
+                                <span className="metric-value">{metrics?.summary?.total_buildings || '...'}</span>
+                            </div>
+                        </div>
+
+                        <div className="metric-card">
+                            <h3>Total Footprint Area</h3>
+                            <div className="flex items-center gap-3">
+                                <Maximize2 className="text-green-500" size={24} />
+                                <span className="metric-value">
+                                    {metrics?.summary?.total_area ? (metrics.summary.total_area / 1000000).toFixed(2) : '...'} km²
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="mt-8">
+                            <h4 className="text-sm font-semibold text-slate-500 mb-4 uppercase tracking-wider">
+                                Building Distribution
+                            </h4>
+                            <div className="chart-container">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={metrics?.distribution || []} layout="vertical">
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                                        <XAxis type="number" hide />
+                                        <YAxis
+                                            dataKey="type"
+                                            type="category"
+                                            width={80}
+                                            fontSize={11}
+                                            tick={{ fill: '#64748b' }}
+                                        />
+                                        <Tooltip
+                                            cursor={{ fill: '#f1f5f9' }}
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                        />
+                                        <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                                            {metrics?.distribution?.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="chat-container">
+                        <div className="chat-history">
+                            {messages.map((msg, i) => (
+                                <div key={i} className={`message ${msg.role}`}>
+                                    {msg.text}
+                                </div>
+                            ))}
+                            {isTyping && (
+                                <div className="message ai typing">
+                                    <div className="flex gap-1">
+                                        <span className="animate-bounce">.</span>
+                                        <span className="animate-bounce delay-75">.</span>
+                                        <span className="animate-bounce delay-150">.</span>
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={chatEndRef} />
+                        </div>
 
-                <div className="space-y-4">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Project Info</label>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                        This application visualizes building geometries in Tangerang City.
-                        Data is streamed directly from a <span className="text-slate-300 font-semibold">PostgreSQL/PostGIS</span> database via a <span className="text-slate-300 font-semibold">Node.js</span> backend.
-                    </p>
-                </div>
-            </div>
-
-            <div className="mt-auto pt-6 border-t border-slate-800">
-                <div className="flex items-center justify-between text-[10px] text-slate-600 font-bold uppercase tracking-tighter">
-                    <span>Leaflet + Supabase</span>
-                    <span>v1.0-STABLE</span>
-                </div>
+                        <form className="chat-input-area" onSubmit={handleSendMessage}>
+                            <input
+                                className="chat-input"
+                                placeholder="Ask about building data..."
+                                value={inputMessage}
+                                onChange={(e) => setInputMessage(e.target.value)}
+                            />
+                            <button type="submit" className="send-btn">
+                                <Send size={18} />
+                            </button>
+                        </form>
+                    </div>
+                )}
             </div>
         </div>
     );
-};
-
-export default DashboardSidebar;
+}

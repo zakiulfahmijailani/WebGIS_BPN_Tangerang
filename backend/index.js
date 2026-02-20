@@ -6,19 +6,19 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Enable CORS
+// Enable CORS and JSON parsing
 app.use(cors());
 app.use(express.json());
 
 // Supabase Connection using DATABASE_URL
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL,
 });
 
-// GET endpoint for buildings
+// 1. GET endpoint for buildings
 app.get('/api/buildings', async (req, res) => {
-    try {
-        const geojsonQuery = `
+  try {
+    const geojsonQuery = `
       SELECT jsonb_build_object(
         'type', 'FeatureCollection',
         'features', jsonb_agg(feature)
@@ -33,18 +33,34 @@ app.get('/api/buildings', async (req, res) => {
       ) features;
     `;
 
-        const result = await pool.query(geojsonQuery);
-        res.json(result.rows[0].jsonb_build_object || { type: 'FeatureCollection', features: [] });
-    } catch (err) {
-        console.error('Error fetching buildings:', err);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
+    const result = await pool.query(geojsonQuery);
+    res.json(result.rows[0].jsonb_build_object || { type: 'FeatureCollection', features: [] });
+  } catch (err) {
+    console.error('Error fetching buildings:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// 2. GET endpoint for metrics (Mock Data for Step 1)
+app.get('/api/metrics', (req, res) => {
+  res.json({
+    totalBuildings: 5000,
+    totalArea: "1500 sq km"
+  });
+});
+
+// 3. POST endpoint for chat (Mock Data for Step 1)
+app.post('/api/chat', (req, res) => {
+  const { message } = req.body;
+  res.json({
+    reply: "I am the WebGIS Agent. I see your message."
+  });
 });
 
 app.get('/', (req, res) => {
-    res.send('WebGIS Backend is running');
+  res.send('WebGIS Backend is running');
 });
 
 app.listen(port, () => {
-    console.log(`Backend server running on port ${port}`);
+  console.log(`Backend server running on port ${port}`);
 });
