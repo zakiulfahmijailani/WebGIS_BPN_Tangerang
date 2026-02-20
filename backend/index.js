@@ -6,8 +6,10 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Enable CORS and JSON parsing
-app.use(cors());
+// Enable CORS allowing all origins and JSON parsing
+app.use(cors({
+  origin: '*'
+}));
 app.use(express.json());
 
 // Supabase Connection using DATABASE_URL
@@ -61,6 +63,12 @@ app.get('/', (req, res) => {
   res.send('WebGIS Backend is running');
 });
 
-app.listen(port, () => {
-  console.log(`Backend server running on port ${port}`);
-});
+// Only listen if running locally (not on Vercel)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
+    console.log(`Backend server running on port ${port}`);
+  });
+}
+
+// Export the app for Vercel Serverless
+module.exports = app;
