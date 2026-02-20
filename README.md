@@ -1,98 +1,78 @@
-# TangerangLandUse-WebGIS
+# Tangerang Buildings WebGIS
 
-WebGIS application for managing land-use data in Kota Tangerang, Banten, Indonesia.  
-Built with **FastAPI + Supabase PostgreSQL** (backend) and **React + Vite + Leaflet** (frontend).  
-Deployable on **Vercel**.
+A production-ready WebGIS application for visualizing building footprints in Tangerang City. Built with Supabase (PostGIS), Node.js, and React.
 
----
+## 🚀 Tech Stack
 
-## Architecture
+- **Frontend**: React (Vite), React-Leaflet, TailwindCSS
+- **Backend**: Node.js, Express.js, `pg` (node-postgres)
+- **Database**: Supabase (PostgreSQL + PostGIS)
 
-```
-/api/index.py       → FastAPI serverless function (Vercel Python runtime)
-/frontend/          → React + Vite + Leaflet SPA
-/vercel.json        → Routes /api/* → Python, /* → frontend static
-```
+## 📁 Project Structure
 
-All data lives in **Supabase PostgreSQL** (table: `land_use_polygons`).
-
----
-
-## Quick Start (Local Development)
-
-### Prerequisites
-- Python 3.10+
-- Node.js 18+
-- A Supabase project with PostGIS enabled
-
-### 1. Set up environment
-
-```bash
-cp .env.example .env
-# Edit .env and set your DATABASE_URL
+```text
+/
+├── backend/          # Node.js/Express server
+├── frontend/         # React/Vite application
+└── README.md         # Documentation
 ```
 
-### 2. Create database table (first time only)
+## 🛠️ Setup Instructions
 
-Connect to your Supabase SQL Editor and run:
+### 1. Database Setup (Supabase)
 
-```sql
-CREATE TABLE IF NOT EXISTS land_use_polygons (
-    id          SERIAL PRIMARY KEY,
-    zone_id     VARCHAR(50)   NOT NULL,
-    category    VARCHAR(50)   NOT NULL,
-    area_ha     REAL          NOT NULL DEFAULT 0,
-    district    VARCHAR(100)  NOT NULL DEFAULT '',
-    description TEXT          DEFAULT '',
-    geometry    TEXT          NOT NULL,
-    created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
-);
-```
+1. Create a new project on [Supabase](https://supabase.com/).
+2. Enable PostGIS extension by running this in the SQL Editor:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS postgis;
+   ```
+3. Upload your `tangerang_buildings.geojson` using `ogr2ogr`. Run the following command locally (ensure you have GDAL installed):
+   ```bash
+   ogr2ogr -f "PostgreSQL" PG:"host=db.[your-project-ref].supabase.co user=postgres password=[your-password] dbname=postgres" "tangerang_buildings.geojson" -nln tangerang_buildings -nlt PROMOTE_TO_MULTI
+   ```
+   > [!NOTE]
+   > Replace `[your-project-ref]` and `[your-password]` with your Supabase credentials.
 
-### 3. Start the backend
+### 2. Backend Setup
 
-```bash
-pip install -r requirements.txt
-uvicorn api.index:app --reload --port 8000
-```
+1. Navigate to the `backend` folder:
+   ```bash
+   cd backend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env` file based on `.env.example` and add your Supabase `DATABASE_URL`.
+4. Start the server:
+   ```bash
+   npm run dev
+   ```
+   The backend will run on `http://localhost:5000`.
 
-### 4. Start the frontend
+### 3. Frontend Setup
 
-```bash
-cd frontend
-npm install
-npm run dev
-# → http://localhost:5173 (proxies /api to localhost:8000)
-```
+1. Navigate to the `frontend` folder:
+   ```bash
+   cd ../frontend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env` file based on `.env.example` (usually `VITE_API_URL=http://localhost:5000/api/buildings`).
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+   The application will be available at `http://localhost:5173`.
 
----
+## 📍 API Endpoints
 
-## Deploying to Vercel
+- `GET /api/buildings`: Returns building footprints as a GeoJSON FeatureCollection.
 
-1. Push this repo to GitHub.
-2. Import the project in Vercel.
-3. Set **Root Directory** to `.` (repo root).
-4. Add environment variable: `DATABASE_URL` = your Supabase connection string.
-5. Deploy — Vercel auto-detects the Python function and frontend build.
+## 🎨 Design Features
 
----
-
-## API Endpoints
-
-| Method   | Path                   | Description                |
-|----------|------------------------|----------------------------|
-| `GET`    | `/api/landuse`         | List all polygons (GeoJSON)|
-| `POST`   | `/api/landuse`         | Create polygon(s)          |
-| `PUT`    | `/api/landuse/{id}`    | Update polygon             |
-| `DELETE` | `/api/landuse/{id}`    | Delete polygon             |
-| `POST`   | `/api/landuse/upload`  | Upload GeoJSON file        |
-| `POST`   | `/api/report`          | Generate PNG map report    |
-
----
-
-## Tech Stack
-
-- **Backend**: FastAPI, psycopg2, Supabase PostgreSQL
-- **Frontend**: React 19, Vite 7, Leaflet, Chart.js
-- **Deployment**: Vercel (Python serverless + static frontend)
+- **Dark Mode UI**: Sleek, modern interface using Slate and Emerald color palettes.
+- **Interactive Map**: Hover effects, smooth popups, and custom styling for building layers.
+- **Performance**: Optimized SQL query using PostGIS `ST_AsGeoJSON` for efficient data transfer.
