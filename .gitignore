@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.db
+
+# Environment
+.env
+
+# Node
+node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.sw?
+
+# Build artifacts
+*.log
+test_report.png
+
+# Python Virtual Environment
+.venv/
+venv/
+__pycache__/
+
+# Frontend Node Modules
+node_modules/
+.next/
+
+# Environment Variables (SANGAT PENTING agar password tidak bocor)
+.env
+.env.local
+
