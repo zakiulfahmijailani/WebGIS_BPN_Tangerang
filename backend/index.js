@@ -63,12 +63,7 @@ app.get('/', (req, res) => {
   res.send('WebGIS Backend is running');
 });
 
-// Only listen if running locally (not on Vercel)
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(port, () => {
-    console.log(`Backend server running on port ${port}`);
-  });
-}
-
-// Export the app for Vercel Serverless
-module.exports = app;
+// Listen on port
+app.listen(port, () => {
+  console.log(`Backend server running on port ${port}`);
+});
