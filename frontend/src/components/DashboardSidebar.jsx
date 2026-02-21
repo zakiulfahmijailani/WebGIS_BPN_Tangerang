@@ -1,171 +1,193 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
-} from 'recharts';
-import {
-    LayoutDashboard, MessageSquare, Send, Building, Maximize2, Activity
-} from 'lucide-react';
-import { getMetrics, postChat } from '../api';
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+    Legend,
+    ArcElement,
+    RadialLinearScale,
+    PointElement,
+    LineElement,
+    Filler,
+} from 'chart.js';
+import { Bar, Doughnut, Radar } from 'react-chartjs-2';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+// Register Chart.js components
+ChartJS.register(
+    CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
+    ArcElement, RadialLinearScale, PointElement, LineElement, Filler
+);
 
-export default function DashboardSidebar() {
-    const [activeTab, setActiveTab] = useState('metrics');
-    const [metrics, setMetrics] = useState(null);
-    const [messages, setMessages] = useState([
-        { role: 'ai', text: 'Hello! I am your Tangerang WebGIS Assistant. How can I help you today?' }
-    ]);
-    const [inputMessage, setInputMessage] = useState('');
-    const [isTyping, setIsTyping] = useState(false);
+export default function DashboardSidebar({ selectedFeature, chatMessages, globalMetrics }) {
     const chatEndRef = useRef(null);
 
-    // Auto-scroll chat
+    // Auto-scroll chat when new messages arrive
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, isTyping]);
+    }, [chatMessages]);
 
-    // Load metrics data
-    useEffect(() => {
-        const fetchMetrics = async () => {
-            try {
-                const data = await getMetrics();
-                setMetrics(data);
-            } catch (err) {
-                console.error('Failed to load metrics:', err);
-            }
-        };
-        fetchMetrics();
-    }, []);
+    // Handle Mock Chart Data Based on globalMetrics
+    // In a real app, this would be accurately parsed from the backend
+    const buildTypeLabels = globalMetrics?.distribution?.map(d => d.type) || ['Residential', 'Commercial', 'Industrial', 'Public'];
+    const buildTypeData = globalMetrics?.distribution?.map(d => parseInt(d.count)) || [3000, 1200, 500, 300];
 
-    const handleSendMessage = async (e) => {
-        e.preventDefault();
-        if (!inputMessage.trim()) return;
+    const doughnutData = {
+        labels: buildTypeLabels,
+        datasets: [{
+            data: buildTypeData,
+            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'],
+            borderWidth: 0,
+        }]
+    };
 
-        const userMsg = inputMessage;
-        setInputMessage('');
-        setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-        setIsTyping(true);
+    const barData = {
+        labels: ['North Dist.', 'South Dist.', 'East Dist.', 'West Dist.', 'Central'],
+        datasets: [{
+            label: 'Buildings',
+            data: [1200, 1900, 800, 1500, 2000], // Mock regional data
+            backgroundColor: '#93c5fd',
+            borderRadius: 4,
+        }]
+    };
 
-        try {
-            const data = await postChat(userMsg);
-            setMessages(prev => [...prev, { role: 'ai', text: data.response }]);
-        } catch (err) {
-            setMessages(prev => [...prev, { role: 'ai', text: 'Error connecting to chatbot server.' }]);
-        } finally {
-            setIsTyping(false);
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } }
         }
     };
 
-    return (
-        <div className="sidebar">
-            {/* Tab Navigation */}
-            <div className="sidebar-header">
-                <button
-                    className={`tab-btn ${activeTab === 'metrics' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('metrics')}
-                >
-                    <LayoutDashboard size={18} />
-                    <span>Metrics</span>
-                </button>
-                <button
-                    className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('chat')}
-                >
-                    <MessageSquare size={18} />
-                    <span>AI Chat</span>
-                </button>
+    const barOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+        }
+    };
+
+    // Section C: Contextual Radar Chart (Appears on click)
+    const renderRadarChart = () => {
+        if (!selectedFeature) return null;
+
+        // Mock comparative metrics logic based on selected polygon area
+        const featureArea = parseFloat(selectedFeature.area || 0);
+        const avgArea = globalMetrics?.summary?.total_area ? (parseFloat(globalMetrics.summary.total_area) / parseInt(globalMetrics.summary.total_buildings)).toFixed(2) : 250;
+
+        const radarData = {
+            labels: ['Area', 'Perimeter', 'Accessibility', 'Density', 'Value'],
+            datasets: [
+                {
+                    label: `Selected ID: ${selectedFeature.id?.substring(0, 8) || 'N/A'}`,
+                    data: [featureArea > 0 ? 80 : 40, 65, 59, 90, 81], // Mocks prioritizing Area
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                },
+                {
+                    label: 'Tangerang Average',
+                    data: [50, 50, 50, 50, 50],
+                    backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                    borderColor: 'rgba(148, 163, 184, 1)',
+                    pointBackgroundColor: 'rgba(148, 163, 184, 1)',
+                }
+            ]
+        };
+
+        return (
+            <div className="chart-card">
+                <h4>Comparative Analysis</h4>
+                <div className="chart-wrapper">
+                    <Radar data={radarData} options={{ maintainAspectRatio: false }} />
+                </div>
             </div>
+        );
+    };
 
-            <div className="sidebar-content">
-                {activeTab === 'metrics' ? (
-                    <div className="metrics-section">
-                        <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                            <Activity size={20} className="text-blue-500" />
-                            Spatial Insights
-                        </h2>
+    return (
+        <aside className="dashboard-panel">
 
-                        <div className="metric-card">
-                            <h3>Total Buildings</h3>
-                            <div className="flex items-center gap-3">
-                                <Building className="text-blue-500" size={24} />
-                                <span className="metric-value">{metrics?.summary?.total_buildings || '...'}</span>
-                            </div>
+            {/* SECTION A: Chatbot */}
+            <section className="dashboard-chat">
+                <div className="chat-header">
+                    <span className="text-blue-600">🤖</span>
+                    <span>WebGIS Assistant</span>
+                </div>
+                <div className="chat-history">
+                    {chatMessages.map((msg, i) => (
+                        <div key={i} className={`message ${msg.role}`}>
+                            {msg.text}
                         </div>
+                    ))}
+                    <div ref={chatEndRef} />
+                </div>
+                <div className="chat-input-area">
+                    <input
+                        type="text"
+                        className="chat-input"
+                        placeholder="AI query interface disabled in this view..."
+                        disabled
+                    />
+                </div>
+            </section>
 
-                        <div className="metric-card">
-                            <h3>Total Footprint Area</h3>
-                            <div className="flex items-center gap-3">
-                                <Maximize2 className="text-green-500" size={24} />
-                                <span className="metric-value">
-                                    {metrics?.summary?.total_area ? (metrics.summary.total_area / 1000000).toFixed(2) : '...'} km²
-                                </span>
-                            </div>
-                        </div>
+            {/* SECTION B: Metrics & Charts */}
+            <section className="dashboard-charts">
+                <h3 className="section-title">Spatial Analytics</h3>
 
-                        <div className="mt-8">
-                            <h4 className="text-sm font-semibold text-slate-500 mb-4 uppercase tracking-wider">
-                                Building Distribution
-                            </h4>
-                            <div className="chart-container">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={metrics?.distribution || []} layout="vertical">
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
-                                        <XAxis type="number" hide />
-                                        <YAxis
-                                            dataKey="type"
-                                            type="category"
-                                            width={80}
-                                            fontSize={11}
-                                            tick={{ fill: '#64748b' }}
-                                        />
-                                        <Tooltip
-                                            cursor={{ fill: '#f1f5f9' }}
-                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                        />
-                                        <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                                            {metrics?.distribution?.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
+                {/* Radar Chart (Contextual based on map click) */}
+                {renderRadarChart()}
+
+                <div className="chart-card">
+                    <h4>Building Typology</h4>
+                    <div className="chart-wrapper">
+                        <Doughnut data={doughnutData} options={chartOptions} />
+                    </div>
+                </div>
+
+                <div className="chart-card">
+                    <h4>Regional Distribution</h4>
+                    <div className="chart-wrapper">
+                        <Bar data={barData} options={barOptions} />
+                    </div>
+                </div>
+            </section>
+
+            {/* SECTION C: Summary Stats */}
+            <section className="dashboard-summary">
+                {selectedFeature ? (
+                    <div className="info-card">
+                        <h4><span className="text-xl">📍</span> Selected Feature Details</h4>
+                        <div className="info-grid mt-3">
+                            <span className="label">ID:</span>
+                            <span className="val">{selectedFeature.id || 'N/A'}</span>
+                            <span className="label">Type:</span>
+                            <span className="val capitalize">{selectedFeature.type || 'Unknown'}</span>
+                            <span className="label">Area:</span>
+                            <span className="val">{selectedFeature.area ? `${selectedFeature.area} m²` : 'Data Unavailable'}</span>
                         </div>
                     </div>
                 ) : (
-                    <div className="chat-container">
-                        <div className="chat-history">
-                            {messages.map((msg, i) => (
-                                <div key={i} className={`message ${msg.role}`}>
-                                    {msg.text}
-                                </div>
-                            ))}
-                            {isTyping && (
-                                <div className="message ai typing">
-                                    <div className="flex gap-1">
-                                        <span className="animate-bounce">.</span>
-                                        <span className="animate-bounce delay-75">.</span>
-                                        <span className="animate-bounce delay-150">.</span>
-                                    </div>
-                                </div>
-                            )}
-                            <div ref={chatEndRef} />
+                    <div className="stats-grid">
+                        <div className="stat-box">
+                            <div className="stat-label">Total Buildings</div>
+                            <div className="stat-value">{globalMetrics?.summary?.total_buildings || '...'}</div>
                         </div>
-
-                        <form className="chat-input-area" onSubmit={handleSendMessage}>
-                            <input
-                                className="chat-input"
-                                placeholder="Ask about building data..."
-                                value={inputMessage}
-                                onChange={(e) => setInputMessage(e.target.value)}
-                            />
-                            <button type="submit" className="send-btn">
-                                <Send size={18} />
-                            </button>
-                        </form>
+                        <div className="stat-box">
+                            <div className="stat-label">Total Area Covered</div>
+                            <div className="stat-value">
+                                {globalMetrics?.summary?.total_area ? (globalMetrics.summary.total_area / 1000000).toFixed(2) : '...'} km²
+                            </div>
+                        </div>
                     </div>
                 )}
-            </div>
-        </div>
+            </section>
+
+        </aside>
     );
 }

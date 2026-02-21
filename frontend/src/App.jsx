@@ -1,70 +1,110 @@
 import React, { useState, useEffect, useRef } from 'react';
 import MapView from './components/MapView';
 import DashboardSidebar from './components/DashboardSidebar';
-import { getBuildings } from './api';
+import { getBuildings, getMetrics } from './api';
 import './App.css';
 
 function App() {
     const [geojsonData, setGeojsonData] = useState({ type: 'FeatureCollection', features: [] });
+    const [globalMetrics, setGlobalMetrics] = useState(null);
+
+    // State for interactivity between Map and Dashboard
+    const [selectedFeature, setSelectedFeature] = useState(null);
+    const [chatMessages, setChatMessages] = useState([
+        { role: 'agent', text: 'Welcome to the Agentic WebGIS. Click on any building on the map to analyze it.' }
+    ]);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const mapRef = useRef(null);
 
     useEffect(() => {
-        const loadMapData = async () => {
+        const loadData = async () => {
             setLoading(true);
             setError(null);
             try {
-                const data = await getBuildings();
-                setGeojsonData(data);
+                // Fetch polygons
+                const polygons = await getBuildings();
+                setGeojsonData(polygons);
+
+                // Fetch global metrics
+                const metrics = await getMetrics();
+                setGlobalMetrics(metrics);
+
             } catch (err) {
-                console.error('Failed to load buildings:', err);
+                console.error('Failed to load data:', err);
                 setError('Connection error: Is the backend server running?');
             } finally {
                 setLoading(false);
             }
         };
-        loadMapData();
+        loadData();
     }, []);
+
+    // Callback triggered by MapView when a polygon is clicked
+    const handleFeatureClick = (featureProperties) => {
+        setSelectedFeature(featureProperties);
+
+        // Automatically add a context message to the chatbot
+        const id = featureProperties.id || 'Unknown';
+        const area = featureProperties.area ? `${featureProperties.area} m²` : 'unknown size';
+        const type = featureProperties.type || 'building';
+
+        setChatMessages(prev => [
+            ...prev,
+            {
+                role: 'agent',
+                text: `You selected building ID ${id}. It is classified as a ${type} with an area of ${area}. Updating charts...`
+            }
+        ]);
+    };
 
     return (
         <div className="app">
-            <header className="app-header">
-                <div className="flex items-center gap-2">
-                    <span className="text-2xl">🏛️</span>
-                    <h1>Tangerang WebGIS Dashboard</h1>
+            {loading && (
+                <div className="loading-overlay">
+                    <div className="loading-spinner"></div>
+                    <p>Fetching geospatial data...</p>
                 </div>
-                {!loading && (
-                    <div className="header-count">
-                        {geojsonData.features.length} Buildings Mapped
-                    </div>
-                )}
-            </header>
+            )}
+            {error && (
+                <div className="error-overlay text-center">
+                    <p className="mb-4 text-red-600 font-semibold">⚠️ {error}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                        Retry Connection
+                    </button>
+                </div>
+            )}
 
-            <main className="app-content">
-                <DashboardSidebar />
-
-                <section className="map-area">
-                    {loading && (
-                        <div className="loading-overlay">
-                            <div className="loading-spinner"></div>
-                            <p>Fetching geospatial data...</p>
+            {/* Left Column: Interactive Map */}
+            <section className="map-area">
+                <header className="app-header">
+                    <span className="text-xl">🗺️</span>
+                    <h1>Tangerang Spatial Analytics</h1>
+                    {!loading && (
+                        <div className="header-count">
+                            {geojsonData.features.length} Features
                         </div>
                     )}
-                    {error && (
-                        <div className="error-overlay text-center">
-                            <p className="mb-4">⚠️ {error}</p>
-                            <button
-                                onClick={() => window.location.reload()}
-                                className="bg-blue-500 text-white px-4 py-2 rounded-lg"
-                            >
-                                Retry Connection
-                            </button>
-                        </div>
-                    )}
-                    <MapView geojsonData={geojsonData} mapRef={mapRef} />
-                </section>
-            </main>
+                </header>
+
+                <MapView
+                    geojsonData={geojsonData}
+                    mapRef={mapRef}
+                    onFeatureClick={handleFeatureClick}
+                    selectedFeatureId={selectedFeature?.id}
+                />
+            </section>
+
+            {/* Right Column: Interactive Dashboard */}
+            <DashboardSidebar
+                selectedFeature={selectedFeature}
+                chatMessages={chatMessages}
+                globalMetrics={globalMetrics}
+            />
         </div>
     );
 }
