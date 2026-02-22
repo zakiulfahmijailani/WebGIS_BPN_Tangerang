@@ -13,10 +13,17 @@ L.Icon.Default.mergeOptions({
 /**
  * Enhanced MapView with CARTO Light and Dashboard Interactivity.
  */
-export default function MapView({ geojsonData, mapRef, onFeatureClick, selectedFeatureId }) {
+export default function MapView({
+    geojsonData, mapRef, onFeatureClick, selectedFeatureId,
+    cityBoundary, kecamatanBoundary, kelurahanBoundary,
+    showKecamatan, showKelurahan
+}) {
     const mapContainerRef = useRef(null);
     const mapInstanceRef = useRef(null);
-    const layerRef = useRef(null);
+    const buildingLayerRef = useRef(null);
+    const cityLayerRef = useRef(null);
+    const kecamatanLayerRef = useRef(null);
+    const kelurahanLayerRef = useRef(null);
 
     // Initialize Map
     useEffect(() => {
@@ -47,46 +54,41 @@ export default function MapView({ geojsonData, mapRef, onFeatureClick, selectedF
         };
     }, []);
 
-    // Render Polygons & Handle Selection
+    // Render Buildings & Handle Selection
     useEffect(() => {
         const map = mapInstanceRef.current;
         if (!map || !geojsonData) return;
 
-        if (layerRef.current) map.removeLayer(layerRef.current);
+        if (buildingLayerRef.current) map.removeLayer(buildingLayerRef.current);
 
         const layer = L.geoJSON(geojsonData, {
             style: (feature) => {
                 const isSelected = feature.properties?.id === selectedFeatureId;
                 return {
-                    color: isSelected ? '#2563eb' : '#94a3b8', // Blue if selected, else gray border
+                    color: isSelected ? '#2563eb' : '#94a3b8',
                     weight: isSelected ? 3 : 1,
-                    fillColor: isSelected ? '#3b82f6' : '#cbd5e1', // Bright blue if selected, else light gray fill
-                    fillOpacity: isSelected ? 0.6 : 0.3,
+                    fillColor: isSelected ? '#3b82f6' : '#cbd5e1',
+                    fillOpacity: isSelected ? 0.6 : 0.4,
                 };
             },
             onEachFeature: (feature, layer) => {
                 const props = feature.properties || {};
 
-                // Interaction
                 layer.on('mouseover', () => {
                     if (props.id !== selectedFeatureId) {
-                        layer.setStyle({ fillOpacity: 0.5, weight: 2, color: '#64748b' });
+                        layer.setStyle({ fillOpacity: 0.6, weight: 2, color: '#64748b' });
                     }
                 });
 
                 layer.on('mouseout', () => {
                     if (props.id !== selectedFeatureId) {
-                        layer.setStyle({ fillOpacity: 0.3, weight: 1, color: '#94a3b8' });
+                        layer.setStyle({ fillOpacity: 0.4, weight: 1, color: '#94a3b8' });
                     }
                 });
 
-                // Trigger App.jsx State Update on Click
                 layer.on('click', () => {
                     if (onFeatureClick) {
-                        // Pass properties up to App.jsx to update dashboard
                         onFeatureClick(props);
-
-                        // Optional: slightly pan to feature
                         map.panTo(layer.getBounds().getCenter());
                     }
                 });
@@ -94,9 +96,8 @@ export default function MapView({ geojsonData, mapRef, onFeatureClick, selectedF
         });
 
         layer.addTo(map);
-        layerRef.current = layer;
+        buildingLayerRef.current = layer;
 
-        // Auto-fit bounds on initial load if no selection is taking priority
         if (geojsonData.features && geojsonData.features.length > 0 && !selectedFeatureId) {
             try {
                 const bounds = layer.getBounds();
@@ -109,11 +110,66 @@ export default function MapView({ geojsonData, mapRef, onFeatureClick, selectedF
         }
     }, [geojsonData, selectedFeatureId, onFeatureClick]);
 
+    // Render City Boundary
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map || !cityBoundary) return;
+
+        if (cityLayerRef.current) map.removeLayer(cityLayerRef.current);
+
+        const layer = L.geoJSON(cityBoundary, {
+            style: { color: '#1f2937', weight: 3, fillOpacity: 0, fill: false },
+            interactive: false
+        });
+        layer.addTo(map);
+        cityLayerRef.current = layer;
+    }, [cityBoundary]);
+
+    // Render Kecamatan Boundary
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        if (kecamatanLayerRef.current) {
+            map.removeLayer(kecamatanLayerRef.current);
+            kecamatanLayerRef.current = null;
+        }
+
+        if (showKecamatan && kecamatanBoundary) {
+            const layer = L.geoJSON(kecamatanBoundary, {
+                style: { color: '#4b5563', weight: 1.5, dashArray: '5, 5', fillOpacity: 0, fill: false },
+                interactive: false
+            });
+            layer.addTo(map);
+            kecamatanLayerRef.current = layer;
+        }
+    }, [kecamatanBoundary, showKecamatan]);
+
+    // Render Kelurahan Boundary
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        if (kelurahanLayerRef.current) {
+            map.removeLayer(kelurahanLayerRef.current);
+            kelurahanLayerRef.current = null;
+        }
+
+        if (showKelurahan && kelurahanBoundary) {
+            const layer = L.geoJSON(kelurahanBoundary, {
+                style: { color: '#9ca3af', weight: 1, dashArray: '3, 3', fillOpacity: 0, fill: false },
+                interactive: false
+            });
+            layer.addTo(map);
+            kelurahanLayerRef.current = layer;
+        }
+    }, [kelurahanBoundary, showKelurahan]);
+
     return (
         <div className="map-container">
             <div ref={mapContainerRef} className="leaflet-map" />
             <div className="map-legend">
-                <h4>Building Footprints</h4>
+                <h4>Layers & Footprints</h4>
                 <div className="legend-item">
                     <span className="legend-color" style={{ backgroundColor: '#cbd5e1', border: '1px solid #94a3b8' }} />
                     <span className="legend-label">Unselected Polygon</span>
@@ -122,6 +178,24 @@ export default function MapView({ geojsonData, mapRef, onFeatureClick, selectedF
                     <span className="legend-color" style={{ backgroundColor: '#3b82f6', border: '2px solid #2563eb' }} />
                     <span className="legend-label">Selected Polygon</span>
                 </div>
+                {cityBoundary && (
+                    <div className="legend-item">
+                        <span className="legend-color" style={{ backgroundColor: 'transparent', border: '3px solid #1f2937' }} />
+                        <span className="legend-label">City Boundary</span>
+                    </div>
+                )}
+                {showKecamatan && (
+                    <div className="legend-item">
+                        <span className="legend-color" style={{ backgroundColor: 'transparent', border: '1.5px dashed #4b5563' }} />
+                        <span className="legend-label">Kecamatan</span>
+                    </div>
+                )}
+                {showKelurahan && (
+                    <div className="legend-item">
+                        <span className="legend-color" style={{ backgroundColor: 'transparent', border: '1px dashed #9ca3af' }} />
+                        <span className="legend-label">Kelurahan</span>
+                    </div>
+                )}
             </div>
         </div>
     );

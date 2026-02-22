@@ -1,17 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import MapView from './components/MapView';
 import DashboardSidebar from './components/DashboardSidebar';
-import { getBuildings, getMetrics } from './api';
+import { getBuildings, getMetrics, getBoundary } from './api';
 import './App.css';
 
 function App() {
     const [geojsonData, setGeojsonData] = useState({ type: 'FeatureCollection', features: [] });
     const [globalMetrics, setGlobalMetrics] = useState(null);
 
+    // Boundary States
+    const [cityBoundary, setCityBoundary] = useState(null);
+    const [kecamatanBoundary, setKecamatanBoundary] = useState(null);
+    const [kelurahanBoundary, setKelurahanBoundary] = useState(null);
+
+    // Toggle States
+    const [showKecamatan, setShowKecamatan] = useState(false);
+    const [showKelurahan, setShowKelurahan] = useState(false);
+
     // State for interactivity between Map and Dashboard
     const [selectedFeature, setSelectedFeature] = useState(null);
     const [chatMessages, setChatMessages] = useState([
-        { role: 'agent', text: 'Welcome to the Agentic WebGIS. Click on any building on the map to analyze it.' }
+        { role: 'agent', text: 'Welcome to the Agentic WebGIS. You can ask me to toggle boundary layers, tracking "district" or "sub-district", or click Polygons.' }
     ]);
 
     const [loading, setLoading] = useState(true);
@@ -23,13 +32,15 @@ function App() {
             setLoading(true);
             setError(null);
             try {
-                // Fetch polygons
-                const polygons = await getBuildings();
-                setGeojsonData(polygons);
+                const [polygons, metrics, cityLayer] = await Promise.all([
+                    getBuildings(),
+                    getMetrics(),
+                    getBoundary('city')
+                ]);
 
-                // Fetch global metrics
-                const metrics = await getMetrics();
+                setGeojsonData(polygons);
                 setGlobalMetrics(metrics);
+                setCityBoundary(cityLayer);
 
             } catch (err) {
                 console.error('Failed to load data:', err);
@@ -46,9 +57,9 @@ function App() {
         setSelectedFeature(featureProperties);
 
         // Automatically add a context message to the chatbot
-        const id = featureProperties.id || 'Unknown';
-        const area = featureProperties.area ? `${featureProperties.area} m²` : 'unknown size';
-        const type = featureProperties.type || 'building';
+        const id = featureProperties?.id || 'Unknown';
+        const area = featureProperties?.area ? `${featureProperties.area} m²` : 'unknown size';
+        const type = featureProperties?.type || 'building';
 
         setChatMessages(prev => [
             ...prev,
@@ -59,12 +70,47 @@ function App() {
         ]);
     };
 
+    const handleChatCommand = async (userMsg) => {
+        setChatMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+        const msgLower = userMsg.toLowerCase();
+
+        let response = "I can only help toggle boundary layers like 'district' (Kecamatan) or 'sub-district' (Kelurahan) right now.";
+
+        try {
+            if (msgLower.includes('kecamatan') || msgLower.includes('district')) {
+                if (!kecamatanBoundary) {
+                    const data = await getBoundary('kecamatan');
+                    setKecamatanBoundary(data);
+                }
+                setShowKecamatan(prev => {
+                    response = !prev ? "Toggling Kecamatan boundaries ON." : "Toggling Kecamatan boundaries OFF.";
+                    return !prev;
+                });
+            } else if (msgLower.includes('kelurahan') || msgLower.includes('sub-district') || msgLower.includes('subdistrict')) {
+                if (!kelurahanBoundary) {
+                    const data = await getBoundary('kelurahan');
+                    setKelurahanBoundary(data);
+                }
+                setShowKelurahan(prev => {
+                    response = !prev ? "Toggling Kelurahan boundaries ON." : "Toggling Kelurahan boundaries OFF.";
+                    return !prev;
+                });
+            }
+        } catch (e) {
+            response = "Error fetching the requested boundary layer.";
+        }
+
+        setTimeout(() => {
+            setChatMessages(prev => [...prev, { role: 'agent', text: response }]);
+        }, 400);
+    };
+
     return (
         <div className="app">
             {loading && (
                 <div className="loading-overlay">
                     <div className="loading-spinner"></div>
-                    <p>Fetching geospatial data...</p>
+                    <p>Fetching geospatial data and boundaries...</p>
                 </div>
             )}
             {error && (
@@ -96,6 +142,11 @@ function App() {
                     mapRef={mapRef}
                     onFeatureClick={handleFeatureClick}
                     selectedFeatureId={selectedFeature?.id}
+                    cityBoundary={cityBoundary}
+                    kecamatanBoundary={kecamatanBoundary}
+                    kelurahanBoundary={kelurahanBoundary}
+                    showKecamatan={showKecamatan}
+                    showKelurahan={showKelurahan}
                 />
             </section>
 
@@ -103,6 +154,7 @@ function App() {
             <DashboardSidebar
                 selectedFeature={selectedFeature}
                 chatMessages={chatMessages}
+                onChatCommand={handleChatCommand}
                 globalMetrics={globalMetrics}
             />
         </div>

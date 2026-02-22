@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -15,22 +15,46 @@ import {
 } from 'chart.js';
 import { Bar, Doughnut, Radar } from 'react-chartjs-2';
 
-// Register Chart.js components
 ChartJS.register(
     CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
     ArcElement, RadialLinearScale, PointElement, LineElement, Filler
 );
 
-export default function DashboardSidebar({ selectedFeature, chatMessages, globalMetrics }) {
-    const chatEndRef = useRef(null);
+// Fallback ErrorBoundary for robust rendering
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+    static getDerivedStateFromError(error) {
+        return { hasError: true };
+    }
+    componentDidCatch(error, errorInfo) {
+        console.error("Dashboard error:", error, errorInfo);
+    }
+    render() {
+        if (this.state.hasError) {
+            return <div className="text-sm p-4 text-red-500 bg-red-50 border border-red-200 rounded">Error loading visualization. Please select a different feature.</div>;
+        }
+        return this.props.children;
+    }
+}
 
-    // Auto-scroll chat when new messages arrive
+export default function DashboardSidebar({ selectedFeature, chatMessages, onChatCommand, globalMetrics }) {
+    const chatEndRef = useRef(null);
+    const [inputMessage, setInputMessage] = useState('');
+
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [chatMessages]);
 
-    // Handle Mock Chart Data Based on globalMetrics
-    // In a real app, this would be accurately parsed from the backend
+    const handleSendMessage = (e) => {
+        e.preventDefault();
+        if (!inputMessage.trim()) return;
+        onChatCommand(inputMessage);
+        setInputMessage('');
+    };
+
     const buildTypeLabels = globalMetrics?.distribution?.map(d => d.type) || ['Residential', 'Commercial', 'Industrial', 'Public'];
     const buildTypeData = globalMetrics?.distribution?.map(d => parseInt(d.count)) || [3000, 1200, 500, 300];
 
@@ -47,7 +71,7 @@ export default function DashboardSidebar({ selectedFeature, chatMessages, global
         labels: ['North Dist.', 'South Dist.', 'East Dist.', 'West Dist.', 'Central'],
         datasets: [{
             label: 'Buildings',
-            data: [1200, 1900, 800, 1500, 2000], // Mock regional data
+            data: [1200, 1900, 800, 1500, 2000],
             backgroundColor: '#93c5fd',
             borderRadius: 4,
         }]
@@ -56,9 +80,7 @@ export default function DashboardSidebar({ selectedFeature, chatMessages, global
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-            legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } }
-        }
+        plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } }
     };
 
     const barOptions = {
@@ -71,20 +93,27 @@ export default function DashboardSidebar({ selectedFeature, chatMessages, global
         }
     };
 
-    // Section C: Contextual Radar Chart (Appears on click)
     const renderRadarChart = () => {
         if (!selectedFeature) return null;
 
-        // Mock comparative metrics logic based on selected polygon area
-        const featureArea = parseFloat(selectedFeature.area || 0);
-        const avgArea = globalMetrics?.summary?.total_area ? (parseFloat(globalMetrics.summary.total_area) / parseInt(globalMetrics.summary.total_buildings)).toFixed(2) : 250;
+        // SAFE OPTIONAL CHAINING TO FIX BLANK SCREEN CRASH
+        const featureArea = parseFloat(selectedFeature?.area || 0);
+
+        let avgAreaVal = 250;
+        if (globalMetrics?.summary?.total_area && globalMetrics?.summary?.total_buildings) {
+            const totalArea = parseFloat(globalMetrics.summary.total_area);
+            const totalBuildings = parseInt(globalMetrics.summary.total_buildings);
+            if (!isNaN(totalArea) && !isNaN(totalBuildings) && totalBuildings > 0) {
+                avgAreaVal = totalArea / totalBuildings;
+            }
+        }
 
         const radarData = {
             labels: ['Area', 'Perimeter', 'Accessibility', 'Density', 'Value'],
             datasets: [
                 {
-                    label: `Selected ID: ${selectedFeature.id?.substring(0, 8) || 'N/A'}`,
-                    data: [featureArea > 0 ? 80 : 40, 65, 59, 90, 81], // Mocks prioritizing Area
+                    label: `Selected ID: ${selectedFeature?.id?.toString().substring(0, 8) || 'N/A'}`,
+                    data: [featureArea > 0 ? 80 : 40, 65, 59, 90, 81],
                     backgroundColor: 'rgba(59, 130, 246, 0.2)',
                     borderColor: 'rgba(59, 130, 246, 1)',
                     pointBackgroundColor: 'rgba(59, 130, 246, 1)',
@@ -100,18 +129,19 @@ export default function DashboardSidebar({ selectedFeature, chatMessages, global
         };
 
         return (
-            <div className="chart-card">
-                <h4>Comparative Analysis</h4>
-                <div className="chart-wrapper">
-                    <Radar data={radarData} options={{ maintainAspectRatio: false }} />
+            <ErrorBoundary>
+                <div className="chart-card">
+                    <h4>Comparative Analysis</h4>
+                    <div className="chart-wrapper">
+                        <Radar data={radarData} options={{ maintainAspectRatio: false }} />
+                    </div>
                 </div>
-            </div>
+            </ErrorBoundary>
         );
     };
 
     return (
         <aside className="dashboard-panel">
-
             {/* SECTION A: Chatbot */}
             <section className="dashboard-chat">
                 <div className="chat-header">
@@ -126,36 +156,40 @@ export default function DashboardSidebar({ selectedFeature, chatMessages, global
                     ))}
                     <div ref={chatEndRef} />
                 </div>
-                <div className="chat-input-area">
+                <form className="chat-input-area border-t flex" onSubmit={handleSendMessage}>
                     <input
                         type="text"
-                        className="chat-input"
-                        placeholder="AI query interface disabled in this view..."
-                        disabled
+                        className="chat-input flex-1 px-3 py-2 text-sm border rounded focus:outline-none focus:border-blue-500"
+                        placeholder="Type to toggle mapped layers (e.g. 'district')..."
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
                     />
-                </div>
+                </form>
             </section>
 
             {/* SECTION B: Metrics & Charts */}
             <section className="dashboard-charts">
                 <h3 className="section-title">Spatial Analytics</h3>
 
-                {/* Radar Chart (Contextual based on map click) */}
                 {renderRadarChart()}
 
-                <div className="chart-card">
-                    <h4>Building Typology</h4>
-                    <div className="chart-wrapper">
-                        <Doughnut data={doughnutData} options={chartOptions} />
+                <ErrorBoundary>
+                    <div className="chart-card">
+                        <h4>Building Typology</h4>
+                        <div className="chart-wrapper">
+                            <Doughnut data={doughnutData} options={chartOptions} />
+                        </div>
                     </div>
-                </div>
+                </ErrorBoundary>
 
-                <div className="chart-card">
-                    <h4>Regional Distribution</h4>
-                    <div className="chart-wrapper">
-                        <Bar data={barData} options={barOptions} />
+                <ErrorBoundary>
+                    <div className="chart-card">
+                        <h4>Regional Distribution</h4>
+                        <div className="chart-wrapper">
+                            <Bar data={barData} options={barOptions} />
+                        </div>
                     </div>
-                </div>
+                </ErrorBoundary>
             </section>
 
             {/* SECTION C: Summary Stats */}
@@ -165,11 +199,11 @@ export default function DashboardSidebar({ selectedFeature, chatMessages, global
                         <h4><span className="text-xl">📍</span> Selected Feature Details</h4>
                         <div className="info-grid mt-3">
                             <span className="label">ID:</span>
-                            <span className="val">{selectedFeature.id || 'N/A'}</span>
+                            <span className="val">{selectedFeature?.id || 'N/A'}</span>
                             <span className="label">Type:</span>
-                            <span className="val capitalize">{selectedFeature.type || 'Unknown'}</span>
+                            <span className="val capitalize">{selectedFeature?.type || 'Unknown'}</span>
                             <span className="label">Area:</span>
-                            <span className="val">{selectedFeature.area ? `${selectedFeature.area} m²` : 'Data Unavailable'}</span>
+                            <span className="val">{selectedFeature?.area ? `${selectedFeature.area} m²` : 'Data Unavailable'}</span>
                         </div>
                     </div>
                 ) : (
@@ -181,13 +215,14 @@ export default function DashboardSidebar({ selectedFeature, chatMessages, global
                         <div className="stat-box">
                             <div className="stat-label">Total Area Covered</div>
                             <div className="stat-value">
-                                {globalMetrics?.summary?.total_area ? (globalMetrics.summary.total_area / 1000000).toFixed(2) : '...'} km²
+                                {globalMetrics?.summary?.total_area && !isNaN(parseFloat(globalMetrics.summary.total_area))
+                                    ? (parseFloat(globalMetrics.summary.total_area) / 1000000).toFixed(2)
+                                    : '...'} km²
                             </div>
                         </div>
                     </div>
                 )}
             </section>
-
         </aside>
     );
 }

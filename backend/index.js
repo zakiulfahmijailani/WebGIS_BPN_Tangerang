@@ -43,6 +43,39 @@ app.get('/api/buildings', async (req, res) => {
   }
 });
 
+// 1.5 GET endpoint for boundaries
+app.get('/api/boundaries/:layer', async (req, res) => {
+  const layer = req.params.layer;
+  let tableName = '';
+
+  if (layer === 'city') tableName = 'kota_tangerang_city_boundary';
+  else if (layer === 'kecamatan') tableName = 'kota_tangerang_kecamatan_boundary';
+  else if (layer === 'kelurahan') tableName = 'kota_tangerang_kelurahan_boundary';
+  else return res.status(400).json({ error: 'Invalid boundary layer type' });
+
+  try {
+    const geojsonQuery = `
+      SELECT jsonb_build_object(
+        'type', 'FeatureCollection',
+        'features', jsonb_agg(feature)
+      ) 
+      FROM (
+        SELECT jsonb_build_object(
+          'type', 'Feature',
+          'geometry', ST_AsGeoJSON(geom)::jsonb,
+          'properties', to_jsonb(inputs) - 'geom'
+        ) AS feature 
+        FROM (SELECT * FROM ${tableName}) inputs
+      ) features;
+    `;
+    const result = await pool.query(geojsonQuery);
+    res.json(result.rows[0].jsonb_build_object || { type: 'FeatureCollection', features: [] });
+  } catch (err) {
+    console.error(`Error fetching boundary ${layer}:`, err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // 2. GET endpoint for metrics (Mock Data for Step 1)
 app.get('/api/metrics', (req, res) => {
   res.json({
