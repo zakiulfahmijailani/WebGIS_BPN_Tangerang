@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Fix default marker icons for Leaflet (though we mostly use polygons here)
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -10,17 +9,16 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-/**
- * Enhanced MapView with CARTO Light and Dashboard Interactivity.
- */
 export default function MapView({
     geojsonData, mapRef, onFeatureClick, selectedFeatureId,
     cityBoundary, kecamatanBoundary, kelurahanBoundary,
-    showKecamatan, showKelurahan
+    showKecamatan, showKelurahan,
+    activeAILayer // <--- NEW AI GEOJSON LAYER PROP
 }) {
     const mapContainerRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const buildingLayerRef = useRef(null);
+    const aiLayerRef = useRef(null);
     const cityLayerRef = useRef(null);
     const kecamatanLayerRef = useRef(null);
     const kelurahanLayerRef = useRef(null);
@@ -35,13 +33,10 @@ export default function MapView({
             zoomControl: false,
         });
 
-        // Add zoom control at top-right
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // CARTO Light Base Map
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://osm.org/copyright">OSM</a>',
-            subdomains: 'abcd',
+            attribution: '&copy; CARTO &copy; OSM',
             maxZoom: 20,
         }).addTo(map);
 
@@ -54,7 +49,7 @@ export default function MapView({
         };
     }, []);
 
-    // Render Buildings & Handle Selection
+    // Render Base Default Buildings
     useEffect(() => {
         const map = mapInstanceRef.current;
         if (!map || !geojsonData) return;
@@ -68,22 +63,18 @@ export default function MapView({
                     color: isSelected ? '#2563eb' : '#94a3b8',
                     weight: isSelected ? 3 : 1,
                     fillColor: isSelected ? '#3b82f6' : '#cbd5e1',
-                    fillOpacity: isSelected ? 0.6 : 0.4,
+                    fillOpacity: isSelected ? 0.6 : 0.2, // Base layers are more transparent to allow AI layers to pop
                 };
             },
             onEachFeature: (feature, layer) => {
                 const props = feature.properties || {};
 
                 layer.on('mouseover', () => {
-                    if (props.id !== selectedFeatureId) {
-                        layer.setStyle({ fillOpacity: 0.6, weight: 2, color: '#64748b' });
-                    }
+                    if (props.id !== selectedFeatureId) layer.setStyle({ fillOpacity: 0.6, weight: 2, color: '#64748b' });
                 });
 
                 layer.on('mouseout', () => {
-                    if (props.id !== selectedFeatureId) {
-                        layer.setStyle({ fillOpacity: 0.4, weight: 1, color: '#94a3b8' });
-                    }
+                    if (props.id !== selectedFeatureId) layer.setStyle({ fillOpacity: 0.2, weight: 1, color: '#94a3b8' });
                 });
 
                 layer.on('click', () => {
@@ -98,17 +89,49 @@ export default function MapView({
         layer.addTo(map);
         buildingLayerRef.current = layer;
 
-        if (geojsonData.features && geojsonData.features.length > 0 && !selectedFeatureId) {
+    }, [geojsonData, selectedFeatureId, onFeatureClick]);
+
+    // Render AI Query Results over top of base buildings
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        if (aiLayerRef.current) {
+            map.removeLayer(aiLayerRef.current);
+            aiLayerRef.current = null;
+        }
+
+        if (activeAILayer && activeAILayer.features?.length > 0) {
+            const layer = L.geoJSON(activeAILayer, {
+                style: {
+                    color: '#f59e0b', // Agentic vibrant amber/gold outline
+                    weight: 2,
+                    fillColor: '#f1f5f9', // Light fill to pulse
+                    fillOpacity: 0.8,
+                },
+                onEachFeature: (feature, layer) => {
+                    const props = feature.properties || {};
+                    // Make AI generated polys interactive too!
+                    layer.on('click', () => {
+                        if (onFeatureClick) onFeatureClick(props);
+                    });
+                }
+            });
+
+            layer.addTo(map);
+            aiLayerRef.current = layer;
+
+            // Auto-snap the camera to the AI results
             try {
                 const bounds = layer.getBounds();
                 if (bounds.isValid()) {
-                    map.fitBounds(bounds, { padding: [40, 40] });
+                    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
                 }
             } catch (e) {
-                console.error('Error fitting bounds:', e);
+                console.error("Bounds fit error:", e);
             }
         }
-    }, [geojsonData, selectedFeatureId, onFeatureClick]);
+    }, [activeAILayer, onFeatureClick]);
 
     // Render City Boundary
     useEffect(() => {
@@ -172,28 +195,18 @@ export default function MapView({
                 <h4>Layers & Footprints</h4>
                 <div className="legend-item">
                     <span className="legend-color" style={{ backgroundColor: '#cbd5e1', border: '1px solid #94a3b8' }} />
-                    <span className="legend-label">Unselected Polygon</span>
+                    <span className="legend-label">Base Polygon</span>
                 </div>
-                <div className="legend-item">
-                    <span className="legend-color" style={{ backgroundColor: '#3b82f6', border: '2px solid #2563eb' }} />
-                    <span className="legend-label">Selected Polygon</span>
-                </div>
+                {activeAILayer && (
+                    <div className="legend-item animate-pulse">
+                        <span className="legend-color" style={{ backgroundColor: '#fcd34d', border: '2px solid #f59e0b' }} />
+                        <span className="legend-label font-bold text-amber-600">AI Query Result</span>
+                    </div>
+                )}
                 {cityBoundary && (
                     <div className="legend-item">
                         <span className="legend-color" style={{ backgroundColor: 'transparent', border: '3px solid #1f2937' }} />
                         <span className="legend-label">City Boundary</span>
-                    </div>
-                )}
-                {showKecamatan && (
-                    <div className="legend-item">
-                        <span className="legend-color" style={{ backgroundColor: 'transparent', border: '1.5px dashed #4b5563' }} />
-                        <span className="legend-label">Kecamatan</span>
-                    </div>
-                )}
-                {showKelurahan && (
-                    <div className="legend-item">
-                        <span className="legend-color" style={{ backgroundColor: 'transparent', border: '1px dashed #9ca3af' }} />
-                        <span className="legend-label">Kelurahan</span>
                     </div>
                 )}
             </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+
 import MapView from './components/MapView';
 import DashboardSidebar from './components/DashboardSidebar';
 import { getBuildings, getMetrics, getBoundary } from './api';
@@ -17,16 +18,23 @@ function App() {
     const [showKecamatan, setShowKecamatan] = useState(false);
     const [showKelurahan, setShowKelurahan] = useState(false);
 
-    // State for interactivity between Map and Dashboard
+    // AI & Map Integration States
     const [selectedFeature, setSelectedFeature] = useState(null);
-    const [chatMessages, setChatMessages] = useState([
-        { role: 'agent', text: 'Welcome to the Agentic WebGIS. You can ask me to toggle boundary layers, tracking "district" or "sub-district", or click Polygons.' }
+    const [activeAILayer, setActiveAILayer] = useState(null);
+
+    // Local explicit state to fix useChat bugs
+    const [messages, setMessages] = useState([
+        { id: 'initial-1', role: 'assistant', content: 'Welcome! I am your Autonomous WebGIS Agent. Ask me spatial questions, and I will write databases queries to show you the data on the map. Try asking: "Show me all public buildings" or "Find large commercial buildings".' }
     ]);
+    const [chatInputBox, setChatInputBox] = useState('');
+    const [isLoadingBackend, setIsLoadingBackend] = useState(false);
+    const [selectedModel, setSelectedModel] = useState('openai/gpt-4o-mini');
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const mapRef = useRef(null);
 
+    // Load initial map data
     useEffect(() => {
         const loadData = async () => {
             setLoading(true);
@@ -52,57 +60,101 @@ function App() {
         loadData();
     }, []);
 
-    // Callback triggered by MapView when a polygon is clicked
+    // Watch AI messages — no longer needed for tool invocations in Two-Pass mode
+    // activeAILayer is set directly in customHandleSubmit
+
+    // Interactivity: clicking map shapes
     const handleFeatureClick = (featureProperties) => {
         setSelectedFeature(featureProperties);
-
-        // Automatically add a context message to the chatbot
-        const id = featureProperties?.id || 'Unknown';
-        const area = featureProperties?.area ? `${featureProperties.area} m²` : 'unknown size';
-        const type = featureProperties?.type || 'building';
-
-        setChatMessages(prev => [
-            ...prev,
-            {
-                role: 'agent',
-                text: `You selected building ID ${id}. It is classified as a ${type} with an area of ${area}. Updating charts...`
-            }
-        ]);
     };
 
-    const handleChatCommand = async (userMsg) => {
-        setChatMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-        const msgLower = userMsg.toLowerCase();
+    // Maintain legacy command logic for toggling boundaries without writing SQL via LLM 
+    // We intercept form submission conditionally
+    const customHandleSubmit = async (e) => {
+        e.preventDefault();
+        if (!chatInputBox.trim()) return;
 
-        let response = "I can only help toggle boundary layers like 'district' (Kecamatan) or 'sub-district' (Kelurahan) right now.";
+        const msgLower = chatInputBox.toLowerCase();
+        const submittedText = chatInputBox; // Save it before clearing
+        setChatInputBox(''); // Clear input explicitly
 
-        try {
-            if (msgLower.includes('kecamatan') || msgLower.includes('district')) {
-                if (!kecamatanBoundary) {
-                    const data = await getBoundary('kecamatan');
-                    setKecamatanBoundary(data);
-                }
-                setShowKecamatan(prev => {
-                    response = !prev ? "Toggling Kecamatan boundaries ON." : "Toggling Kecamatan boundaries OFF.";
-                    return !prev;
-                });
-            } else if (msgLower.includes('kelurahan') || msgLower.includes('sub-district') || msgLower.includes('subdistrict')) {
-                if (!kelurahanBoundary) {
-                    const data = await getBoundary('kelurahan');
-                    setKelurahanBoundary(data);
-                }
-                setShowKelurahan(prev => {
-                    response = !prev ? "Toggling Kelurahan boundaries ON." : "Toggling Kelurahan boundaries OFF.";
-                    return !prev;
-                });
+        // Local Regex Intercept Pattern
+        if (msgLower.includes('toggle district') || msgLower.includes('show kecamatan') || msgLower.includes('hide kecamatan')) {
+            if (!kecamatanBoundary) {
+                const data = await getBoundary('kecamatan');
+                setKecamatanBoundary(data);
             }
-        } catch (e) {
-            response = "Error fetching the requested boundary layer.";
+            setShowKecamatan(prev => !prev);
+            setMessages(prev => [...prev,
+            { id: Date.now().toString(), role: 'user', content: submittedText },
+            { id: (Date.now() + 1).toString(), role: 'assistant', content: 'I have toggled the Kecamatan (District) layer for you on the map.' }
+            ]);
+            return;
         }
 
-        setTimeout(() => {
-            setChatMessages(prev => [...prev, { role: 'agent', text: response }]);
-        }, 400);
+        if (msgLower.includes('toggle subdistrict') || msgLower.includes('show kelurahan') || msgLower.includes('hide kelurahan')) {
+            if (!kelurahanBoundary) {
+                const data = await getBoundary('kelurahan');
+                setKelurahanBoundary(data);
+            }
+            setShowKelurahan(prev => !prev);
+            setMessages(prev => [...prev,
+            { id: Date.now().toString(), role: 'user', content: submittedText },
+            { id: (Date.now() + 1).toString(), role: 'assistant', content: 'I have toggled the Kelurahan (Sub-district) layer for you on the map.' }
+            ]);
+            return;
+        }
+
+        // ─── Two-Pass Architecture: Simple JSON fetch ───
+        try {
+            setIsLoadingBackend(true);
+
+            // Push user message to chat immediately
+            const newMsg = { id: Date.now().toString(), role: 'user', content: submittedText };
+            setMessages(prev => [...prev, newMsg]);
+
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [...messages, newMsg],
+                    model: selectedModel
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || `Server error ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Push AI text response to chat
+            if (data.text) {
+                setMessages(prev => [...prev, {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: data.text,
+                    indicator: data.indicator || null
+                }]);
+            }
+
+            // Set GeoJSON directly on the map layer
+            if (data.geojson && data.geojson.type === 'FeatureCollection' && data.geojson.features?.length > 0) {
+                setActiveAILayer(data.geojson);
+                console.log(`[Map] Rendering ${data.geojson.features.length} AI features`);
+            }
+
+        } catch (err) {
+            console.error('Chat Error:', err);
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                role: 'assistant',
+                content: `❌ Error: ${err.message}`
+            }]);
+        } finally {
+            setIsLoadingBackend(false);
+        }
     };
 
     return (
@@ -129,10 +181,10 @@ function App() {
             <section className="map-area">
                 <header className="app-header">
                     <span className="text-xl">🗺️</span>
-                    <h1>Tangerang Spatial Analytics</h1>
+                    <h1>Autonomous WebGIS</h1>
                     {!loading && (
                         <div className="header-count">
-                            {geojsonData.features.length} Features
+                            {geojsonData.features.length} Features Loaded
                         </div>
                     )}
                 </header>
@@ -147,15 +199,21 @@ function App() {
                     kelurahanBoundary={kelurahanBoundary}
                     showKecamatan={showKecamatan}
                     showKelurahan={showKelurahan}
+                    activeAILayer={activeAILayer}
                 />
             </section>
 
             {/* Right Column: Interactive Dashboard */}
             <DashboardSidebar
                 selectedFeature={selectedFeature}
-                chatMessages={chatMessages}
-                onChatCommand={handleChatCommand}
+                messages={messages}
+                input={chatInputBox}
+                handleInputChange={(e) => setChatInputBox(e.target.value)}
+                handleSubmit={customHandleSubmit}
+                isLoading={isLoadingBackend}
                 globalMetrics={globalMetrics}
+                selectedModel={selectedModel}
+                onModelChange={setSelectedModel}
             />
         </div>
     );
