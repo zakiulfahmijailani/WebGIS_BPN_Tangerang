@@ -186,13 +186,21 @@ app.post('/api/chat', async (req, res) => {
   // ═══════════════════════════════════════════
   // STEP B: Pass 1 — SQL Generation
   // ═══════════════════════════════════════════
-  const sqlSystemPrompt = `You are a specialized PostGIS SQL generator for Tangerang City. You only output valid JSON: {"sql": "SELECT ... "}. Do not use markdown.
+  const sqlSystemPrompt = `You are a master PostGIS SQL generator for Tangerang City. 
+OUTPUT FORMAT: You MUST return ONLY a valid JSON object in this exact format: {"sql": "SELECT ... "} or {"error": "Reason why it cannot be processed"}. No markdown, no conversational text.
 
-STRICT RULES:
-1. You only have access to one table: tangerang_buildings.
-2. Schema: id (integer), geom (geometry, polygon), type (text), area (numeric).
-3. If the user asks for data outside Tangerang City, or asks for tables/data not in the schema (like weather, streets, etc.), DO NOT generate SQL. Instead, output: {"error": "Maaf, saya hanya memiliki akses ke data bangunan di Kota Tangerang."}
-4. Always wrap the final geometry in ST_AsGeoJSON and use jsonb_build_object to return a valid GeoJSON FeatureCollection.`;
+DATABASE SCHEMA:
+- Table: tangerang_buildings (Columns: id (int), geom (geometry, SRID 4326), type (text), area (numeric))
+- Table: kotatangerang_kecamatan_boundary (Columns: id (int), geom (geometry, SRID 4326), kecamatan_name (text))
+
+CRITICAL SPATIAL SQL RULES:
+1. THE GEOJSON WRAPPER: Your query MUST wrap the final output perfectly like this:
+   SELECT jsonb_build_object('type', 'FeatureCollection', 'features', COALESCE(jsonb_agg(ST_AsGeoJSON(t.*)::jsonb), '[]'::jsonb)) AS geojson FROM ( [YOUR QUERY HERE] LIMIT 1000 ) t;
+2. NEGATIVE FILTERS: If the user asks for "non-public" or "exclude", use type NOT ILIKE '%public%'.
+3. SPATIAL JOINS: If the user asks for a specific district/kecamatan (e.g. "North district", "Benda"), you MUST do an inner join: 
+   JOIN kotatangerang_kecamatan_boundary k ON ST_Intersects(b.geom, k.geom) WHERE k.kecamatan_name ILIKE '%[name]%'.
+4. DISTANCE/BUFFER: The geom is SRID 4326. To check distance in meters (e.g., "within 500m of the river"), you MUST cast to geography: ST_DWithin(b.geom::geography, target.geom::geography, 500).
+5. OUT OF BOUNDS: If they ask for Jakarta, weather, or non-spatial concepts, return {"error": "I only analyze Tangerang cadastral data."}.`;
 
   let generatedSQL = null;
   let errorResponse = null;
@@ -240,18 +248,27 @@ STRICT RULES:
   }
 
   // ═══════════════════════════════════════════
-  // STEP C: Execute SQL in Supabase/PostGIS
+  // STEP C: Execute SQL (LLM generates full GeoJSON-wrapped query)
   // ═══════════════════════════════════════════
   if (generatedSQL) {
     try {
-      const wrappedQuery = wrapAsGeoJSON(generatedSQL);
-      console.log('[DB] Executing wrapped query...');
-      const dbRes = await pool.query(wrappedQuery);
-      geojsonResult = dbRes.rows[0]?.result || { type: 'FeatureCollection', features: [] };
+      console.log('[DB] Executing LLM-generated SQL directly...');
+      const dbRes = await pool.query(generatedSQL);
+      geojsonResult = dbRes.rows[0]?.geojson || dbRes.rows[0]?.result || { type: 'FeatureCollection', features: [] };
+      if (typeof geojsonResult === 'string') geojsonResult = JSON.parse(geojsonResult);
       console.log(`[DB] Returned ${geojsonResult.features?.length || 0} features`);
     } catch (sqlErr) {
-      console.error('[DB] SQL execution error:', sqlErr.message);
-      geojsonResult = null;
+      console.error('[DB] Direct SQL failed:', sqlErr.message);
+      // Fallback: try wrapping with server-side helper
+      try {
+        console.log('[DB] Retrying with wrapAsGeoJSON fallback...');
+        const dbRes = await pool.query(wrapAsGeoJSON(generatedSQL));
+        geojsonResult = dbRes.rows[0]?.result || { type: 'FeatureCollection', features: [] };
+        console.log(`[DB] Fallback returned ${geojsonResult.features?.length || 0} features`);
+      } catch (fallbackErr) {
+        console.error('[DB] Fallback also failed:', fallbackErr.message);
+        geojsonResult = null;
+      }
     }
   }
 

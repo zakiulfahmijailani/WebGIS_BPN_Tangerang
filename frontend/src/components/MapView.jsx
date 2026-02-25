@@ -9,178 +9,129 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
+const TYPE_COLORS = {
+    'residential': '#2563eb',
+    'commercial': '#d97706',
+    'industrial': '#dc2626',
+    'public': '#059669',
+    'mixed': '#7c3aed',
+};
+
+function getTypeColor(type) {
+    if (!type) return '#94a3b8';
+    const key = type.toLowerCase();
+    for (const [k, v] of Object.entries(TYPE_COLORS)) {
+        if (key.includes(k)) return v;
+    }
+    return '#94a3b8';
+}
+
 export default function MapView({
     geojsonData, mapRef, onFeatureClick, selectedFeatureId,
     cityBoundary, kecamatanBoundary, kelurahanBoundary,
-    showKecamatan, showKelurahan,
-    activeAILayer // <--- NEW AI GEOJSON LAYER PROP
+    showCity, showKecamatan, showKelurahan,
 }) {
     const mapContainerRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const buildingLayerRef = useRef(null);
-    const aiLayerRef = useRef(null);
     const cityLayerRef = useRef(null);
     const kecamatanLayerRef = useRef(null);
     const kelurahanLayerRef = useRef(null);
 
-    // Initialize Map
+    // Init map
     useEffect(() => {
         if (mapInstanceRef.current) return;
-
         const map = L.map(mapContainerRef.current, {
-            center: [-6.17, 106.64],
-            zoom: 13,
-            zoomControl: false,
+            center: [-6.17, 106.64], zoom: 13, zoomControl: false,
         });
-
         L.control.zoom({ position: 'topright' }).addTo(map);
-
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; CARTO &copy; OSM',
-            maxZoom: 20,
+            attribution: '&copy; CARTO &copy; OSM', maxZoom: 20,
         }).addTo(map);
-
         mapInstanceRef.current = map;
         if (mapRef) mapRef.current = map;
-
-        return () => {
-            map.remove();
-            mapInstanceRef.current = null;
-        };
+        return () => { map.remove(); mapInstanceRef.current = null; };
     }, []);
 
-    // Render Base Default Buildings
+    // Buildings
     useEffect(() => {
         const map = mapInstanceRef.current;
         if (!map || !geojsonData) return;
-
         if (buildingLayerRef.current) map.removeLayer(buildingLayerRef.current);
 
         const layer = L.geoJSON(geojsonData, {
             style: (feature) => {
                 const isSelected = feature.properties?.id === selectedFeatureId;
+                const typeColor = getTypeColor(feature.properties?.type);
                 return {
-                    color: isSelected ? '#2563eb' : '#94a3b8',
-                    weight: isSelected ? 3 : 1,
-                    fillColor: isSelected ? '#3b82f6' : '#cbd5e1',
-                    fillOpacity: isSelected ? 0.6 : 0.2, // Base layers are more transparent to allow AI layers to pop
+                    color: isSelected ? '#0f172a' : typeColor,
+                    weight: isSelected ? 2.5 : 0.8,
+                    fillColor: typeColor,
+                    fillOpacity: isSelected ? 0.8 : 0.5,
                 };
             },
-            onEachFeature: (feature, layer) => {
+            onEachFeature: (feature, lyr) => {
                 const props = feature.properties || {};
-
-                layer.on('mouseover', () => {
-                    if (props.id !== selectedFeatureId) layer.setStyle({ fillOpacity: 0.6, weight: 2, color: '#64748b' });
+                lyr.on('mouseover', () => {
+                    if (props.id !== selectedFeatureId) { lyr.setStyle({ fillOpacity: 0.7, weight: 1.5 }); lyr.bringToFront(); }
                 });
-
-                layer.on('mouseout', () => {
-                    if (props.id !== selectedFeatureId) layer.setStyle({ fillOpacity: 0.2, weight: 1, color: '#94a3b8' });
+                lyr.on('mouseout', () => {
+                    if (props.id !== selectedFeatureId) { lyr.setStyle({ fillOpacity: 0.5, weight: 0.8 }); }
                 });
-
-                layer.on('click', () => {
-                    if (onFeatureClick) {
-                        onFeatureClick(props);
-                        map.panTo(layer.getBounds().getCenter());
-                    }
+                lyr.on('click', () => {
+                    if (onFeatureClick) { onFeatureClick(props); map.panTo(lyr.getBounds().getCenter(), { animate: true }); }
                 });
+                lyr.bindTooltip(
+                    `<strong>${props.type || 'Unknown'}</strong><br/>Area: ${props.area ? Number(props.area).toLocaleString() + ' m²' : 'N/A'}<br/>ID: ${props.id || '–'}`,
+                    { className: 'light-tooltip', direction: 'top', offset: [0, -10] }
+                );
             }
         });
-
         layer.addTo(map);
         buildingLayerRef.current = layer;
-
     }, [geojsonData, selectedFeatureId, onFeatureClick]);
 
-    // Render AI Query Results over top of base buildings
+    // City boundary
     useEffect(() => {
         const map = mapInstanceRef.current;
         if (!map) return;
-
-        if (aiLayerRef.current) {
-            map.removeLayer(aiLayerRef.current);
-            aiLayerRef.current = null;
-        }
-
-        if (activeAILayer && activeAILayer.features?.length > 0) {
-            const layer = L.geoJSON(activeAILayer, {
-                style: {
-                    color: '#f59e0b', // Agentic vibrant amber/gold outline
-                    weight: 2,
-                    fillColor: '#f1f5f9', // Light fill to pulse
-                    fillOpacity: 0.8,
-                },
-                onEachFeature: (feature, layer) => {
-                    const props = feature.properties || {};
-                    // Make AI generated polys interactive too!
-                    layer.on('click', () => {
-                        if (onFeatureClick) onFeatureClick(props);
-                    });
-                }
+        if (cityLayerRef.current) { map.removeLayer(cityLayerRef.current); cityLayerRef.current = null; }
+        if (showCity && cityBoundary) {
+            const layer = L.geoJSON(cityBoundary, {
+                style: { color: '#0f172a', weight: 3, fillOpacity: 0, fill: false },
+                interactive: false
             });
-
             layer.addTo(map);
-            aiLayerRef.current = layer;
-
-            // Auto-snap the camera to the AI results
-            try {
-                const bounds = layer.getBounds();
-                if (bounds.isValid()) {
-                    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
-                }
-            } catch (e) {
-                console.error("Bounds fit error:", e);
-            }
+            cityLayerRef.current = layer;
         }
-    }, [activeAILayer, onFeatureClick]);
+    }, [cityBoundary, showCity]);
 
-    // Render City Boundary
-    useEffect(() => {
-        const map = mapInstanceRef.current;
-        if (!map || !cityBoundary) return;
-
-        if (cityLayerRef.current) map.removeLayer(cityLayerRef.current);
-
-        const layer = L.geoJSON(cityBoundary, {
-            style: { color: '#1f2937', weight: 3, fillOpacity: 0, fill: false },
-            interactive: false
-        });
-        layer.addTo(map);
-        cityLayerRef.current = layer;
-    }, [cityBoundary]);
-
-    // Render Kecamatan Boundary
+    // Kecamatan
     useEffect(() => {
         const map = mapInstanceRef.current;
         if (!map) return;
-
-        if (kecamatanLayerRef.current) {
-            map.removeLayer(kecamatanLayerRef.current);
-            kecamatanLayerRef.current = null;
-        }
-
+        if (kecamatanLayerRef.current) { map.removeLayer(kecamatanLayerRef.current); kecamatanLayerRef.current = null; }
         if (showKecamatan && kecamatanBoundary) {
             const layer = L.geoJSON(kecamatanBoundary, {
-                style: { color: '#4b5563', weight: 1.5, dashArray: '5, 5', fillOpacity: 0, fill: false },
-                interactive: false
+                style: { color: '#475569', weight: 1.5, dashArray: '6, 4', fillOpacity: 0, fill: false },
+                onEachFeature: (feature, lyr) => {
+                    const name = feature.properties?.kecamatan_name || feature.properties?.name || '';
+                    if (name) lyr.bindTooltip(name, { permanent: false, direction: 'center', className: 'light-tooltip' });
+                }
             });
             layer.addTo(map);
             kecamatanLayerRef.current = layer;
         }
     }, [kecamatanBoundary, showKecamatan]);
 
-    // Render Kelurahan Boundary
+    // Kelurahan
     useEffect(() => {
         const map = mapInstanceRef.current;
         if (!map) return;
-
-        if (kelurahanLayerRef.current) {
-            map.removeLayer(kelurahanLayerRef.current);
-            kelurahanLayerRef.current = null;
-        }
-
+        if (kelurahanLayerRef.current) { map.removeLayer(kelurahanLayerRef.current); kelurahanLayerRef.current = null; }
         if (showKelurahan && kelurahanBoundary) {
             const layer = L.geoJSON(kelurahanBoundary, {
-                style: { color: '#9ca3af', weight: 1, dashArray: '3, 3', fillOpacity: 0, fill: false },
+                style: { color: '#94a3b8', weight: 1, dashArray: '3, 3', fillOpacity: 0, fill: false },
                 interactive: false
             });
             layer.addTo(map);
@@ -192,24 +143,26 @@ export default function MapView({
         <div className="map-container">
             <div ref={mapContainerRef} className="leaflet-map" />
             <div className="map-legend">
-                <h4>Layers & Footprints</h4>
-                <div className="legend-item">
-                    <span className="legend-color" style={{ backgroundColor: '#cbd5e1', border: '1px solid #94a3b8' }} />
-                    <span className="legend-label">Base Polygon</span>
-                </div>
-                {activeAILayer && (
-                    <div className="legend-item animate-pulse">
-                        <span className="legend-color" style={{ backgroundColor: '#fcd34d', border: '2px solid #f59e0b' }} />
-                        <span className="legend-label font-bold text-amber-600">AI Query Result</span>
+                <h4>Building Types</h4>
+                {Object.entries(TYPE_COLORS).map(([type, color]) => (
+                    <div className="legend-item" key={type}>
+                        <span className="legend-color" style={{ backgroundColor: color }} />
+                        <span>{type.charAt(0).toUpperCase() + type.slice(1)}</span>
                     </div>
-                )}
-                {cityBoundary && (
-                    <div className="legend-item">
-                        <span className="legend-color" style={{ backgroundColor: 'transparent', border: '3px solid #1f2937' }} />
-                        <span className="legend-label">City Boundary</span>
-                    </div>
-                )}
+                ))}
             </div>
+            <style>{`
+                .light-tooltip {
+                    background: rgba(255,255,255,0.96) !important;
+                    color: #0f172a !important;
+                    border: 1px solid #e2e8f0 !important;
+                    border-radius: 8px !important;
+                    padding: 8px 12px !important;
+                    font-family: 'Inter', sans-serif !important;
+                    font-size: 12px !important;
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important;
+                }
+            `}</style>
         </div>
     );
 }

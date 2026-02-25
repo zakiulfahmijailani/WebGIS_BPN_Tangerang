@@ -1,222 +1,178 @@
-import React, { useState, useEffect, useRef } from 'react';
-
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import axios from 'axios';
+import LoginPage from './LoginPage';
 import MapView from './components/MapView';
-import DashboardSidebar from './components/DashboardSidebar';
-import { getBuildings, getMetrics, getBoundary } from './api';
-import './App.css';
+import ModeSelector from './components/ModeSelector';
+import StatsCards from './components/StatsCards';
+import LayerToggles from './components/LayerToggles';
+import TypeBarChart from './components/TypeBarChart';
+import AreaPieChart from './components/AreaPieChart';
+import AreaTreemap from './components/AreaTreemap';
+import TopBuildingsTable from './components/TopBuildingsTable';
+import FeatureDetail from './components/FeatureDetail';
+import EditPanel from './components/EditPanel';
+import ReportExport from './components/ReportExport';
+import ChatWidget from './components/ChatWidget';
 
-function App() {
-    const [geojsonData, setGeojsonData] = useState({ type: 'FeatureCollection', features: [] });
-    const [globalMetrics, setGlobalMetrics] = useState(null);
+export default function App() {
+    // Auth
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-    // Boundary States
+    // Data
+    const [geojsonData, setGeojsonData] = useState(null);
     const [cityBoundary, setCityBoundary] = useState(null);
     const [kecamatanBoundary, setKecamatanBoundary] = useState(null);
     const [kelurahanBoundary, setKelurahanBoundary] = useState(null);
 
-    // Toggle States
+    // UI State
+    const [selectedFeature, setSelectedFeature] = useState(null);
+    const [activeMode, setActiveMode] = useState('viewing');
+    const [showCity, setShowCity] = useState(true);
     const [showKecamatan, setShowKecamatan] = useState(false);
     const [showKelurahan, setShowKelurahan] = useState(false);
-
-    // AI & Map Integration States
-    const [selectedFeature, setSelectedFeature] = useState(null);
-    const [activeAILayer, setActiveAILayer] = useState(null);
-
-    // Local explicit state to fix useChat bugs
-    const [messages, setMessages] = useState([
-        { id: 'initial-1', role: 'assistant', content: 'Welcome! I am your Autonomous WebGIS Agent. Ask me spatial questions, and I will write databases queries to show you the data on the map. Try asking: "Show me all public buildings" or "Find large commercial buildings".' }
-    ]);
-    const [chatInputBox, setChatInputBox] = useState('');
-    const [isLoadingBackend, setIsLoadingBackend] = useState(false);
-    const [selectedModel, setSelectedModel] = useState('openai/gpt-4o-mini');
-
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const mapRef = useRef(null);
 
-    // Load initial map data
+    // Load data
     useEffect(() => {
-        const loadData = async () => {
-            setLoading(true);
-            setError(null);
+        if (!isLoggedIn) return;
+        async function loadData() {
             try {
-                const [polygons, metrics, cityLayer] = await Promise.all([
-                    getBuildings(),
-                    getMetrics(),
-                    getBoundary('city')
+                const [buildingsRes, cityRes, kecRes, kelRes] = await Promise.all([
+                    axios.get('/api/buildings'),
+                    axios.get('/api/boundaries/city'),
+                    axios.get('/api/boundaries/kecamatan'),
+                    axios.get('/api/boundaries/kelurahan'),
                 ]);
-
-                setGeojsonData(polygons);
-                setGlobalMetrics(metrics);
-                setCityBoundary(cityLayer);
-
+                setGeojsonData(buildingsRes.data);
+                setCityBoundary(cityRes.data);
+                setKecamatanBoundary(kecRes.data);
+                setKelurahanBoundary(kelRes.data);
             } catch (err) {
                 console.error('Failed to load data:', err);
-                setError('Connection error: Is the backend server running?');
+                setError('Failed to connect to backend. Ensure it runs on port 5000.');
             } finally {
                 setLoading(false);
             }
-        };
+        }
         loadData();
-    }, []);
+    }, [isLoggedIn]);
 
-    // Watch AI messages — no longer needed for tool invocations in Two-Pass mode
-    // activeAILayer is set directly in customHandleSubmit
+    const features = useMemo(() => geojsonData?.features || [], [geojsonData]);
+    const avgArea = useMemo(() => {
+        if (features.length === 0) return 0;
+        return features.reduce((s, f) => s + (parseFloat(f.properties?.area) || 0), 0) / features.length;
+    }, [features]);
 
-    // Interactivity: clicking map shapes
-    const handleFeatureClick = (featureProperties) => {
-        setSelectedFeature(featureProperties);
+    const handleLayerToggle = (layer) => {
+        if (layer === 'city') setShowCity(v => !v);
+        if (layer === 'kecamatan') setShowKecamatan(v => !v);
+        if (layer === 'kelurahan') setShowKelurahan(v => !v);
     };
 
-    // Maintain legacy command logic for toggling boundaries without writing SQL via LLM 
-    // We intercept form submission conditionally
-    const customHandleSubmit = async (e) => {
-        e.preventDefault();
-        if (!chatInputBox.trim()) return;
+    // Login gate
+    if (!isLoggedIn) return <LoginPage onLogin={setIsLoggedIn} />;
 
-        const msgLower = chatInputBox.toLowerCase();
-        const submittedText = chatInputBox; // Save it before clearing
-        setChatInputBox(''); // Clear input explicitly
+    if (loading) {
+        return (
+            <div className="loading-screen">
+                <div className="spinner" />
+                <div style={{ color: '#94a3b8', fontSize: 14 }}>Loading Tangerang cadastral data...</div>
+            </div>
+        );
+    }
 
-        // Local Regex Intercept Pattern
-        if (msgLower.includes('toggle district') || msgLower.includes('show kecamatan') || msgLower.includes('hide kecamatan')) {
-            if (!kecamatanBoundary) {
-                const data = await getBoundary('kecamatan');
-                setKecamatanBoundary(data);
-            }
-            setShowKecamatan(prev => !prev);
-            setMessages(prev => [...prev,
-            { id: Date.now().toString(), role: 'user', content: submittedText },
-            { id: (Date.now() + 1).toString(), role: 'assistant', content: 'I have toggled the Kecamatan (District) layer for you on the map.' }
-            ]);
-            return;
-        }
-
-        if (msgLower.includes('toggle subdistrict') || msgLower.includes('show kelurahan') || msgLower.includes('hide kelurahan')) {
-            if (!kelurahanBoundary) {
-                const data = await getBoundary('kelurahan');
-                setKelurahanBoundary(data);
-            }
-            setShowKelurahan(prev => !prev);
-            setMessages(prev => [...prev,
-            { id: Date.now().toString(), role: 'user', content: submittedText },
-            { id: (Date.now() + 1).toString(), role: 'assistant', content: 'I have toggled the Kelurahan (Sub-district) layer for you on the map.' }
-            ]);
-            return;
-        }
-
-        // ─── Two-Pass Architecture: Simple JSON fetch ───
-        try {
-            setIsLoadingBackend(true);
-
-            // Push user message to chat immediately
-            const newMsg = { id: Date.now().toString(), role: 'user', content: submittedText };
-            setMessages(prev => [...prev, newMsg]);
-
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: [...messages, newMsg],
-                    model: selectedModel
-                })
-            });
-
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error || `Server error ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            // Push AI text response to chat
-            if (data.text) {
-                setMessages(prev => [...prev, {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    content: data.text,
-                    indicator: data.indicator || null
-                }]);
-            }
-
-            // Set GeoJSON directly on the map layer
-            if (data.geojson && data.geojson.type === 'FeatureCollection' && data.geojson.features?.length > 0) {
-                setActiveAILayer(data.geojson);
-                console.log(`[Map] Rendering ${data.geojson.features.length} AI features`);
-            }
-
-        } catch (err) {
-            console.error('Chat Error:', err);
-            setMessages(prev => [...prev, {
-                id: Date.now().toString(),
-                role: 'assistant',
-                content: `❌ Error: ${err.message}`
-            }]);
-        } finally {
-            setIsLoadingBackend(false);
-        }
-    };
+    if (error) {
+        return (
+            <div className="loading-screen">
+                <div style={{ fontSize: 48 }}>⚠️</div>
+                <div style={{ color: '#dc2626', fontSize: 14, maxWidth: 400, textAlign: 'center' }}>{error}</div>
+            </div>
+        );
+    }
 
     return (
-        <div className="app">
-            {loading && (
-                <div className="loading-overlay">
-                    <div className="loading-spinner"></div>
-                    <p>Fetching geospatial data and boundaries...</p>
-                </div>
-            )}
-            {error && (
-                <div className="error-overlay text-center">
-                    <p className="mb-4 text-red-600 font-semibold">⚠️ {error}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-                    >
-                        Retry Connection
-                    </button>
-                </div>
-            )}
-
-            {/* Left Column: Interactive Map */}
-            <section className="map-area">
-                <header className="app-header">
-                    <span className="text-xl">🗺️</span>
-                    <h1>Autonomous WebGIS</h1>
-                    {!loading && (
-                        <div className="header-count">
-                            {geojsonData.features.length} Features Loaded
-                        </div>
-                    )}
+        <div className="app-layout">
+            {/* ═══ LEFT: Map (60%) ═══ */}
+            <section className="map-section">
+                <header className="map-header">
+                    <span style={{ fontSize: 20 }}>🗺️</span>
+                    <h1>WebGIS Tangerang</h1>
+                    <span className="badge">{features.length.toLocaleString()} Buildings</span>
                 </header>
-
                 <MapView
                     geojsonData={geojsonData}
                     mapRef={mapRef}
-                    onFeatureClick={handleFeatureClick}
+                    onFeatureClick={setSelectedFeature}
                     selectedFeatureId={selectedFeature?.id}
                     cityBoundary={cityBoundary}
                     kecamatanBoundary={kecamatanBoundary}
                     kelurahanBoundary={kelurahanBoundary}
+                    showCity={showCity}
                     showKecamatan={showKecamatan}
                     showKelurahan={showKelurahan}
-                    activeAILayer={activeAILayer}
                 />
             </section>
 
-            {/* Right Column: Interactive Dashboard */}
-            <DashboardSidebar
-                selectedFeature={selectedFeature}
-                messages={messages}
-                input={chatInputBox}
-                handleInputChange={(e) => setChatInputBox(e.target.value)}
-                handleSubmit={customHandleSubmit}
-                isLoading={isLoadingBackend}
-                globalMetrics={globalMetrics}
-                selectedModel={selectedModel}
-                onModelChange={setSelectedModel}
-            />
+            {/* ═══ RIGHT: Dashboard (40%) ═══ */}
+            <section className="dashboard-section">
+                <header className="dashboard-header">
+                    <h2>📊 Analytics</h2>
+                    <ModeSelector activeMode={activeMode} onModeChange={setActiveMode} />
+                </header>
+
+                <div className="dashboard-scroll">
+                    {/* Summary Stats (always visible) */}
+                    <StatsCards features={features} />
+
+                    {/* Layer toggles (always visible) */}
+                    <LayerToggles
+                        showCity={showCity}
+                        showKecamatan={showKecamatan}
+                        showKelurahan={showKelurahan}
+                        onToggle={handleLayerToggle}
+                    />
+
+                    {/* ── VIEWING mode ── */}
+                    {activeMode === 'viewing' && (
+                        <>
+                            {selectedFeature && (
+                                <FeatureDetail feature={selectedFeature} avgArea={avgArea} />
+                            )}
+                            <TypeBarChart features={features} />
+                            <AreaPieChart features={features} />
+                            <AreaTreemap features={features} />
+                            <TopBuildingsTable features={features} onRowClick={setSelectedFeature} />
+                        </>
+                    )}
+
+                    {/* ── EDITING mode ── */}
+                    {activeMode === 'editing' && (
+                        <>
+                            <EditPanel feature={selectedFeature} />
+                            {selectedFeature && (
+                                <FeatureDetail feature={selectedFeature} avgArea={avgArea} />
+                            )}
+                        </>
+                    )}
+
+                    {/* ── REPORTING mode ── */}
+                    {activeMode === 'reporting' && (
+                        <>
+                            <ReportExport mapContainerSelector=".leaflet-map" />
+                            {selectedFeature && (
+                                <FeatureDetail feature={selectedFeature} avgArea={avgArea} />
+                            )}
+                            <TypeBarChart features={features} />
+                            <AreaPieChart features={features} />
+                        </>
+                    )}
+
+                    <div className="section-divider" />
+                    <ChatWidget />
+                </div>
+            </section>
         </div>
     );
 }
-
-export default App;
