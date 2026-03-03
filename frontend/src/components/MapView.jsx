@@ -29,7 +29,7 @@ function getTypeColor(type) {
 export default function MapView({
     geojsonData, mapRef, onFeatureClick, selectedFeatureId,
     cityBoundary, kecamatanBoundary, kelurahanBoundary,
-    showCity, showKecamatan, showKelurahan,
+    showCity, showKecamatan, showKelurahan, onLayerToggle,
 }) {
     const mapContainerRef = useRef(null);
     const mapInstanceRef = useRef(null);
@@ -139,18 +139,48 @@ export default function MapView({
         }
     }, [kelurahanBoundary, showKelurahan]);
 
+    const layers = [
+        { key: 'city', label: 'City', checked: showCity },
+        { key: 'kecamatan', label: 'Kecamatan', checked: showKecamatan },
+        { key: 'kelurahan', label: 'Kelurahan', checked: showKelurahan },
+    ];
+
     return (
-        <div className="map-container">
-            <div ref={mapContainerRef} className="leaflet-map" />
-            <div className="map-legend">
-                <h4>Building Types</h4>
-                {Object.entries(TYPE_COLORS).map(([type, color]) => (
-                    <div className="legend-item" key={type}>
-                        <span className="legend-color" style={{ backgroundColor: color }} />
-                        <span>{type.charAt(0).toUpperCase() + type.slice(1)}</span>
+        <div className="map-container relative w-full h-full">
+            <div ref={mapContainerRef} className="leaflet-map w-full h-full" />
+
+            {/* Legend Overlay */}
+            <div className="map-legend absolute bottom-4 left-[350px] bg-white/90 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-lg z-[1000] min-w-[200px]">
+                <div className="mb-4">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Building Types</h4>
+                    <div className="space-y-1.5">
+                        {Object.entries(TYPE_COLORS).map(([type, color]) => (
+                            <div className="flex items-center gap-2 text-xs text-slate-600" key={type}>
+                                <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: color }} />
+                                <span className="capitalize">{type}</span>
+                            </div>
+                        ))}
                     </div>
-                ))}
+                </div>
+
+                <div className="pt-3 border-t border-slate-100">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Boundary Layers</h4>
+                    <div className="space-y-2">
+                        {layers.map(l => (
+                            <div key={l.key} className="flex items-center justify-between gap-4 py-0.5">
+                                <span className="text-xs font-medium text-slate-600">{l.label}</span>
+                                <input
+                                    type="checkbox"
+                                    className="w-8 h-4 bg-slate-200 rounded-full appearance-none cursor-pointer checked:bg-blue-600 transition-colors relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:w-3 after:h-3 after:rounded-full after:transition-transform checked:after:translate-x-4"
+                                    checked={l.checked}
+                                    onChange={() => onLayerToggle && onLayerToggle(l.key)}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
+
             <style>{`
                 .light-tooltip {
                     background: rgba(255,255,255,0.96) !important;

@@ -6,73 +6,44 @@ export default function FeatureDetail({ feature, avgArea }) {
     const area = parseFloat(feature.area) || 0;
     const ratio = avgArea > 0 ? Math.min((area / avgArea) * 100, 200) : 0;
     const ratioLabel = avgArea > 0 ? (area / avgArea).toFixed(1) : '–';
-    const barColor = ratio > 100 ? '#10b981' : ratio > 60 ? '#f59e0b' : '#ef4444';
+    const barColor = ratio > 100 ? '#10B981' : ratio > 60 ? '#F59E0B' : '#EF4444';
 
     return (
-        <div className="card feature-detail">
-            <div className="card-title" style={{ marginBottom: 12 }}>
-                🔍 Selected Building
-                <span style={{
-                    marginLeft: 'auto', fontSize: 10, padding: '2px 8px',
-                    background: 'rgba(59,130,246,0.15)', color: '#60a5fa',
-                    borderRadius: 10, border: '1px solid rgba(59,130,246,0.3)'
-                }}>
+        <div>
+            <div className="flex items-center justify-between mb-2">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    🔍 Selected Building
+                </h4>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
                     ID: {feature.id || '–'}
                 </span>
             </div>
 
-            <div className="detail-grid">
-                <div className="detail-item">
-                    <span className="detail-label">Type</span>
-                    <span className="detail-value">{feature.type || 'Unknown'}</span>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Type</span>
+                    <span className="text-sm font-semibold text-slate-800">{feature.type || 'Unknown'}</span>
                 </div>
-                <div className="detail-item">
-                    <span className="detail-label">Area</span>
-                    <span className="detail-value">{area > 0 ? `${area.toLocaleString()} m²` : 'N/A'}</span>
-                </div>
-            </div>
-
-            <div style={{ marginTop: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>
-                        vs. Dataset Average
-                    </span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: barColor }}>
-                        {ratioLabel}×
-                    </span>
-                </div>
-                <div className="comparison-bar-track">
-                    <div
-                        className="comparison-bar-fill"
-                        style={{
-                            width: `${Math.min(ratio, 100)}%`,
-                            background: `linear-gradient(90deg, ${barColor}, ${barColor}88)`,
-                        }}
-                    />
-                </div>
-                <div className="comparison-labels">
-                    <span>0</span>
-                    <span>Avg ({avgArea > 0 ? Math.round(avgArea).toLocaleString() : '–'} m²)</span>
-                    <span>2× Avg</span>
+                <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Area</span>
+                    <span className="text-sm font-semibold text-slate-800">{area > 0 ? `${area.toLocaleString()} m²` : 'N/A'}</span>
                 </div>
             </div>
 
-            {/* Show all extra properties */}
-            <div style={{ marginTop: 16, borderTop: '1px solid #334155', paddingTop: 12 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginBottom: 8 }}>
-                    All Properties
+            {/* Comparison bar */}
+            <div>
+                <div className="flex justify-between items-baseline mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">vs. Dataset Avg</span>
+                    <span className="text-xs font-bold" style={{ color: barColor }}>{ratioLabel}×</span>
                 </div>
-                {Object.entries(feature)
-                    .filter(([k]) => !['geom', 'geometry'].includes(k))
-                    .map(([key, val]) => (
-                        <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid rgba(51,65,85,0.3)' }}>
-                            <span style={{ fontSize: 11, color: '#64748b' }}>{key}</span>
-                            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500, textAlign: 'right', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {String(val)}
-                            </span>
-                        </div>
-                    ))
-                }
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(ratio, 100)}%`, background: barColor }} />
+                </div>
+                <div className="flex justify-between mt-0.5">
+                    <span className="text-[9px] text-slate-300">0</span>
+                    <span className="text-[9px] text-slate-300">Avg ({avgArea > 0 ? Math.round(avgArea).toLocaleString() : '–'} m²)</span>
+                </div>
             </div>
         </div>
     );

@@ -85,6 +85,48 @@ app.get('/api/metrics', (req, res) => {
   });
 });
 
+// ─── AI Insights Endpoint ───
+app.post('/api/ai/insights', async (req, res) => {
+  try {
+    const summaryData = req.body.data;
+    const prompt = `Act as a Lead Spatial Analyst. Based on this JSON summary of building data in Tangerang City, provide a 3-bullet point analysis of the most notable patterns, and suggest one actionable recommendation for urban planning.\n\nData: ${JSON.stringify(summaryData)}`;
+
+    const systemPrompt = 'You are a senior urban planning analyst. Provide concise, data-driven insights. Use bullet points. Be specific with numbers.';
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://webgis-tangerang.vercel.app',
+        'X-Title': 'Tangerang WebGIS'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-001',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 512
+      })
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      console.error('[AI Insights] Error:', response.status, errBody);
+      return res.status(500).json({ text: 'AI service unavailable.' });
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || 'No insights generated.';
+    res.json({ text });
+  } catch (err) {
+    console.error('[AI Insights] Error:', err.message);
+    res.status(500).json({ text: 'Failed to generate insights.' });
+  }
+});
+
 const { generateEmbedding } = require('./ai_utils');
 
 // ─── Helper: Call OpenRouter Chat Completions API ───
