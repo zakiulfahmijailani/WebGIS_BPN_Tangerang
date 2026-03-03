@@ -78,7 +78,7 @@ export default function ChatPanel({
         {
             id: 'welcome',
             role: 'bot',
-            text: '👋 Halo! Saya asisten WebGIS untuk Kota Tangerang. Tanya saya tentang bangunan, kecamatan, atau data spasial lainnya!\n\nContoh: "Tampilkan semua bangunan komersial di Cipondoh"',
+            text: '👋 Halo! Saya ChatbotGIS untuk Kota Tangerang. Tanya saya tentang bangunan, kecamatan, atau data spasial lainnya!\n\nContoh: "Tampilkan semua bangunan komersial di Cipondoh"',
             timestamp: new Date(),
         },
     ]);

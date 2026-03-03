@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../lib/supabaseClient';
-import { Loader2, Navigation } from 'lucide-react';
+import { Loader2, Navigation, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
@@ -86,16 +87,30 @@ export default function LoginPage() {
                         <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
                             Password
                         </label>
-                        <input
-                            type="password"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-white/60 border border-slate-200/50 rounded-xl px-4 py-3 text-sm 
-                                       text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 
-                                       focus:border-blue-500/50 transition-all backdrop-blur-sm"
-                            placeholder="••••••••"
-                        />
+                        <div className="relative">
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full bg-white/60 border border-slate-200/50 rounded-xl px-4 py-3 pr-12 text-sm 
+                                           text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 
+                                           focus:border-blue-500/50 transition-all backdrop-blur-sm"
+                                placeholder="••••••••"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                                tabIndex={-1}
+                            >
+                                {showPassword ? (
+                                    <EyeOff className="w-4 h-4" />
+                                ) : (
+                                    <Eye className="w-4 h-4" />
+                                )}
+                            </button>
+                        </div>
                     </div>
 
                     <button

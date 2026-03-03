@@ -12,6 +12,8 @@
     "@huggingface/inference": "^4.13.14",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.98.0",
+    "@turf/bbox": "^7.3.4",
+    "geojson-writer": "^0.3.6",
     "lucide-react": "^0.576.0",
     "maplibre-gl": "^5.19.0",
     "next": "16.1.6",

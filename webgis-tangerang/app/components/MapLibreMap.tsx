@@ -8,6 +8,7 @@ export interface FlyToCommand {
     center: [number, number]; // [lng, lat]
     zoom: number;
     label?: string;
+    boundingBox?: [number, number, number, number]; // [minX, minY, maxX, maxY]
 }
 
 interface MapLibreMapProps {
@@ -77,21 +78,117 @@ export default function MapLibreMap({
 
         map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
 
+        // Add Scale Control (Metric units)
+        map.current.addControl(new maplibregl.ScaleControl({
+            maxWidth: 100,
+            unit: 'metric'
+        }), 'bottom-left');
+
+        const map_ = map.current;
+
+        // Click handler for buildings and AI results
+        const handleMapClick = (e: maplibregl.MapMouseEvent) => {
+            const layers = [
+                'buildings-fill',
+                'ai-result-layer',
+                'city-fill',
+                'kecamatan-fill',
+                'kelurahan-fill'
+            ].filter(id => map_.getLayer(id));
+
+            const features = map_.queryRenderedFeatures(e.point, {
+                layers: layers,
+            });
+
+            if (!features.length) return;
+
+            const feature = features[0];
+            const props = feature.properties || {};
+            const layerId = feature.layer.id;
+
+            // Determine Title based on layer
+            let title = 'Feature Details';
+            if (layerId === 'buildings-fill') title = 'Building Details';
+            else if (layerId === 'ai-result-layer') title = 'AI Analysis Result';
+            else if (layerId.includes('city')) title = 'City Boundary';
+            else if (layerId.includes('kecamatan')) title = 'Kecamatan Details';
+            else if (layerId.includes('kelurahan')) title = 'Kelurahan Details';
+
+            // Format properties as HTML for the popup (Matching user screenshot style)
+            const content = `
+                <div class="p-4 min-w-[220px]">
+                    <h4 class="font-bold text-blue-600 text-base mb-3 leading-tight">${title}</h4>
+                    <div class="space-y-2 max-h-[250px] overflow-y-auto pr-2 scrollbar-thin">
+                        ${Object.entries(props).map(([key, val]) => `
+                            <div class="text-[13px] leading-relaxed">
+                                <span class="font-bold text-slate-800">${key}:</span> 
+                                <span class="text-slate-600 ml-1">${val}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            new maplibregl.Popup({
+                className: 'glass-popup',
+                closeButton: true,
+                closeOnClick: true,
+                maxWidth: '300px',
+                anchor: 'bottom'
+            })
+                .setLngLat(e.lngLat)
+                .setHTML(content)
+                .addTo(map_);
+        };
+
+        map_.on('click', handleMapClick);
+
+        // Hover cursor effects for ALL interactive layers
+        const interactiveLayers = [
+            'buildings-fill',
+            'ai-result-layer',
+            'city-fill',
+            'kecamatan-fill',
+            'kelurahan-fill'
+        ];
+
+        const handleMouseEnter = () => { map_.getCanvas().style.cursor = 'pointer'; };
+        const handleMouseLeave = () => { map_.getCanvas().style.cursor = ''; };
+
+        interactiveLayers.forEach(layer => {
+            map_.on('mouseenter', layer, handleMouseEnter);
+            map_.on('mouseleave', layer, handleMouseLeave);
+        });
+
         return () => {
-            map.current?.remove();
+            map_.off('click', handleMapClick);
+            interactiveLayers.forEach(layer => {
+                map_.off('mouseenter', layer, handleMouseEnter);
+                map_.off('mouseleave', layer, handleMouseLeave);
+            });
+            map_.remove();
             map.current = null;
         };
     }, []);
 
-    // Handle flyTo commands from chat
+    // Handle flyTo and fitBounds commands from chat or layer actions
     useEffect(() => {
         if (!map.current || !flyToCommand) return;
-        map.current.flyTo({
-            center: flyToCommand.center,
-            zoom: flyToCommand.zoom,
-            duration: 2000,
-            essential: true,
-        });
+
+        if (flyToCommand.boundingBox) {
+            map.current.fitBounds(flyToCommand.boundingBox, {
+                padding: 50,
+                duration: 2000,
+                essential: true
+            });
+        } else {
+            map.current.flyTo({
+                center: flyToCommand.center,
+                zoom: flyToCommand.zoom,
+                duration: 2000,
+                essential: true,
+            });
+        }
     }, [flyToCommand]);
 
     // Load buildings layer on mount

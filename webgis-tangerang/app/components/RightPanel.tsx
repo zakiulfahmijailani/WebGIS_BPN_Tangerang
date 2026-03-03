@@ -4,9 +4,11 @@ import { useState } from "react";
 import ChatPanel from "./ChatPanel";
 import AnalyticsPanel from "./AnalyticsPanel";
 import { FlyToCommand } from "./MapLibreMap";
-import { Eye, EyeOff } from "lucide-react";
+import { PanelRightClose, PanelRight, MessageSquare, BarChart3 } from "lucide-react";
 
 interface RightPanelProps {
+    isCollapsed: boolean;
+    onToggle: () => void;
     sessionId: string;
     selectedModel: string;
     onModelChange: (model: string) => void;
@@ -21,7 +23,6 @@ interface RightPanelProps {
     geojsonData: GeoJSON.FeatureCollection | null;
     buildingsData: GeoJSON.FeatureCollection | null;
     activeQuery: string;
-    // Layer toggles specifically for RightPanel Layers tab
     showCity: boolean;
     setShowCity: (v: boolean) => void;
     showBuildings: boolean;
@@ -32,9 +33,9 @@ interface RightPanelProps {
     setShowKelurahan: (v: boolean) => void;
 }
 
-const TABS = ["Metrics", "Layers", "Legend"];
-
 export default function RightPanel({
+    isCollapsed,
+    onToggle,
     sessionId,
     selectedModel,
     onModelChange,
@@ -44,154 +45,96 @@ export default function RightPanel({
     geojsonData,
     buildingsData,
     activeQuery,
-    showCity, setShowCity,
-    showBuildings, setShowBuildings,
-    showKecamatan, setShowKecamatan,
-    showKelurahan, setShowKelurahan,
 }: RightPanelProps) {
-    const [activeTab, setActiveTab] = useState("Metrics");
-
     return (
-        <div className="w-[360px] flex-shrink-0 h-full bg-[#f8fafc] flex flex-col border-l border-slate-200 relative z-10">
-
-            {/* TOP SECTION: Chatbot (35% height) */}
-            <div className="h-[35%] min-h-[250px] border-b border-slate-200 bg-white/78 backdrop-blur-xl relative flex flex-col">
-                {/* We will embed the ChatPanel here soon */}
-                <div className="p-4 flex items-center justify-between border-b border-white/50 bg-white/40">
-                    <h2 className="font-semibold text-slate-800 tracking-tight flex items-center gap-2">
-                        <span className="text-xl">🤖</span> Kue Assistant
-                    </h2>
-                    {/* Model Selector Placeholder */}
-                    <div className="text-xs text-slate-500 glass px-2 py-1">
-                        Gemini 2.5
-                    </div>
-                </div>
-                <div className="flex-1 overflow-hidden relative">
-                    <ChatPanel
-                        sessionId={sessionId}
-                        selectedModel={selectedModel}
-                        onModelChange={onModelChange}
-                        onChatResponse={onChatResponse}
-                        onMapCommand={onMapCommand}
-                    />
-                </div>
-            </div>
-
-            {/* MIDDLE SECTION: Toggle Bar */}
-            <div className="px-4 py-3 bg-white/40 backdrop-blur-md border-b border-slate-200">
-                <div className="flex p-1 bg-slate-100/80 rounded-xl">
-                    {TABS.map((tab) => (
+        <div className={`flex-shrink-0 h-full flex flex-col border-l border-white/15 relative z-10 transition-all duration-300 ${isCollapsed ? 'w-[64px]' : 'w-[360px]'}`}
+            style={{
+                background: 'rgba(255, 255, 255, 0.45)',
+                backdropFilter: 'blur(24px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+            }}
+        >
+            {/* 1. Header (Always Visible) */}
+            <div className={`flex-none border-b border-white/20 transition-all duration-300 ${isCollapsed ? 'py-6' : 'p-4'}`}
+                style={{ background: 'rgba(255, 255, 255, 0.4)' }}
+            >
+                <div className={`flex items-center justify-between w-full ${isCollapsed ? 'flex-col-reverse gap-3' : 'flex-row'}`}>
+                    <div className={`flex items-center gap-2 ${isCollapsed ? 'flex-col-reverse' : ''}`}>
+                        {/* Toggle Button */}
                         <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`flex-1 text-sm py-1.5 rounded-lg transition-all ${activeTab === tab
-                                ? "bg-white shadow-sm text-slate-900 font-medium"
-                                : "text-slate-500 hover:text-slate-700 font-medium"
-                                }`}
+                            onClick={onToggle}
+                            className="p-2 bg-white/40 hover:bg-white/60 border border-white/40 rounded-lg transition-all text-slate-700 hover:text-slate-900 shadow-sm backdrop-blur-md"
+                            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
                         >
-                            {tab}
+                            {isCollapsed ? <PanelRight className="w-5 h-5" /> : <PanelRightClose className="w-5 h-5" />}
                         </button>
-                    ))}
+
+                        {/* 1b. Identity (Always on the OUTER side expanded, moves to TOP collapsed) */}
+                        {!isCollapsed ? (
+                            <h2 className="font-semibold text-slate-800 tracking-tight flex items-center gap-2 ml-2">
+                                <span className="text-xl">🤖</span> ChatbotGIS
+                            </h2>
+                        ) : (
+                            <span className="text-2xl mt-1" title="ChatbotGIS">🤖</span>
+                        )}
+                    </div>
+
+                    {!isCollapsed && (
+                        <div className="text-xs text-slate-600 bg-white/40 backdrop-blur-sm border border-white/40 px-2 py-1 rounded-lg">
+                            Gemini 2.5
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* BOTTOM SECTION: Content area for active tab (Scrollable) */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin p-4 bg-gradient-to-b from-white/40 to-[#f8fafc]">
-
-                {activeTab === "Metrics" && (
-                    <div className="h-full relative -mx-4 -my-4">
-                        <AnalyticsPanel
-                            geojsonData={geojsonData}
-                            buildingsData={buildingsData}
-                            activeQuery={activeQuery}
+            {/* 2. CHAT SECTION (35% Height, hidden when collapsed) */}
+            {!isCollapsed && (
+                <div className="h-[35%] min-h-[250px] border-b border-white/20 relative flex flex-col overflow-hidden"
+                    style={{ background: 'rgba(255, 255, 255, 0.25)' }}
+                >
+                    <div className="flex-1 overflow-hidden relative">
+                        <ChatPanel
+                            sessionId={sessionId}
+                            selectedModel={selectedModel}
+                            onModelChange={onModelChange}
+                            onChatResponse={onChatResponse}
+                            onMapCommand={onMapCommand}
                         />
                     </div>
-                )}
+                </div>
+            )}
 
-                {activeTab === "Layers" && (
-                    <div className="space-y-3">
-                        <div className="glass p-4">
-                            <h3 className="font-semibold text-slate-800 text-sm mb-4">Map Layers</h3>
-                            <div className="space-y-2">
-                                <LayerToggle label="City Boundary" active={showCity} color="#3b82f6" onToggle={() => setShowCity(!showCity)} />
-                                <LayerToggle label="Buildings" active={showBuildings} color="#4ade80" onToggle={() => setShowBuildings(!showBuildings)} />
-                                <LayerToggle label="Kecamatan" active={showKecamatan} color="#f472b6" onToggle={() => setShowKecamatan(!showKecamatan)} />
-                                <LayerToggle label="Kelurahan" active={showKelurahan} color="#c084fc" onToggle={() => setShowKelurahan(!showKelurahan)} />
+            {/* 3. LOWER SECTION: Metrics & Rail Icons */}
+            <div className={`flex-1 flex flex-col overflow-hidden ${isCollapsed ? 'items-center gap-8 py-8' : ''}`}>
+                {isCollapsed ? (
+                    <>
+                        <MessageSquare className="w-6 h-6 opacity-30 mt-4" />
+                        <BarChart3 className="w-6 h-6 opacity-30" />
+                    </>
+                ) : (
+                    <>
+                        {/* Analytics Header */}
+                        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between flex-none"
+                            style={{ background: 'rgba(255, 255, 255, 0.1)' }}
+                        >
+                            <h3 className="text-sm font-semibold text-slate-800 tracking-tight flex items-center gap-2">
+                                <span className="text-blue-500">📊</span> Metrics & Insights
+                            </h3>
+                        </div>
+
+                        {/* Scrollable Analytics Content */}
+                        <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
+                            <div className="h-full relative -mx-4 -my-4">
+                                <AnalyticsPanel
+                                    geojsonData={geojsonData}
+                                    buildingsData={buildingsData}
+                                    activeQuery={activeQuery}
+                                />
                             </div>
                         </div>
-                    </div>
+                    </>
                 )}
-
-                {activeTab === "Legend" && (
-                    <div className="space-y-3">
-                        <div className="glass p-4">
-                            <h3 className="font-semibold text-slate-800 text-sm mb-4">Current AI Layer</h3>
-                            {aiLayer.style ? (
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-slate-600 font-medium capitalize">
-                                            {aiLayer.style.type || 'Unknown'} Type
-                                        </span>
-                                    </div>
-                                    <div className="bg-slate-50/50 rounded-lg p-3 border border-slate-200">
-                                        {Object.entries(aiLayer.style.paint || {}).map(([key, value]) => (
-                                            <div key={key} className="flex items-center justify-between py-1 text-xs">
-                                                <span className="text-slate-500 font-mono">{key}</span>
-                                                <div className="flex items-center gap-2">
-                                                    {typeof value === 'string' && (value.startsWith('#') || value.startsWith('rgb')) && (
-                                                        <div className="w-4 h-4 rounded shadow-sm border border-slate-300" style={{ backgroundColor: value }} />
-                                                    )}
-                                                    <span className="text-slate-800 font-medium">
-                                                        {typeof value === 'object' ? 'Dynamic' : String(value)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : (
-                                <p className="text-xs text-slate-500 text-center py-6">No active AI style applied</p>
-                            )}
-                        </div>
-                    </div>
-                )}
-
             </div>
         </div>
-    );
-}
-
-// ─── Layer Toggle Sub-component inside RightPanel ───
-function LayerToggle({
-    label,
-    active,
-    color,
-    onToggle,
-}: {
-    label: string;
-    active: boolean;
-    color: string;
-    onToggle: () => void;
-}) {
-    return (
-        <button
-            onClick={onToggle}
-            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg
-                 hover:bg-slate-100 transition-all group border border-transparent hover:border-slate-200"
-        >
-            <div
-                className="w-4 h-4 rounded-sm border-2 transition-all"
-                style={{
-                    backgroundColor: active ? color : 'transparent',
-                    borderColor: color,
-                }}
-            />
-            <span className="text-sm text-slate-700 font-medium flex-1 text-left">{label}</span>
-            {active ? (
-                <Eye className="w-4 h-4 text-slate-500" />
-            ) : (
-                <EyeOff className="w-4 h-4 text-slate-400" />
-            )}
-        </button>
     );
 }
