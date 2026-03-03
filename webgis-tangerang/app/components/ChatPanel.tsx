@@ -154,22 +154,7 @@ export default function ChatPanel({
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-900/50 backdrop-blur-sm">
-            {/* Header */}
-            <div className="flex-none border-b border-slate-700/50">
-                <div className="px-4 py-3 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 
-                          flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                        <Sparkles className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                        <h2 className="text-sm font-semibold text-white">AI Spatial Chat</h2>
-                        <p className="text-[10px] text-slate-400">PostGIS-powered queries</p>
-                    </div>
-                </div>
-                <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
-            </div>
-
+        <div className="flex flex-col h-full bg-transparent">
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3 scrollbar-thin scrollbar-thumb-slate-700">
                 {messages.map((msg) => (
@@ -184,41 +169,35 @@ export default function ChatPanel({
                             </div>
                         )}
                         <div
-                            className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-lg ${msg.role === 'user'
-                                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-br-md'
-                                : 'bg-slate-800/80 text-slate-200 border border-slate-700/50 rounded-bl-md'
+                            className={`max-w-[85%] px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${msg.role === 'user'
+                                ? 'bg-blue-500/15 text-slate-800 rounded-2xl rounded-tr-sm'
+                                : 'bg-white/90 text-slate-800 border border-white/50 rounded-2xl rounded-tl-sm'
                                 }`}
                         >
                             <p className="whitespace-pre-wrap">{msg.text}</p>
                             {msg.featureCount !== undefined && msg.featureCount > 0 && (
-                                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-slate-600/30">
-                                    <MapPin className="w-3 h-3 text-cyan-400" />
-                                    <span className="text-[10px] text-cyan-400 font-medium">
+                                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-slate-200">
+                                    <MapPin className="w-3 h-3 text-blue-500" />
+                                    <span className="text-[10px] text-blue-600 font-medium">
                                         {msg.featureCount} fitur ditemukan
                                     </span>
                                 </div>
                             )}
                         </div>
-                        {msg.role === 'user' && (
-                            <div className="flex-none w-7 h-7 rounded-full bg-slate-700 
-                              flex items-center justify-center mt-0.5">
-                                <User className="w-3.5 h-3.5 text-slate-300" />
-                            </div>
-                        )}
                     </div>
                 ))}
 
                 {isLoading && (
                     <div className="flex gap-2 items-start">
-                        <div className="flex-none w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 
+                        <div className="flex-none w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 
                             flex items-center justify-center">
                             <Bot className="w-3.5 h-3.5 text-white" />
                         </div>
-                        <div className="bg-slate-800/80 text-slate-300 rounded-2xl rounded-bl-md px-4 py-3 
-                            border border-slate-700/50 shadow-lg">
+                        <div className="bg-white/90 text-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 
+                            border border-white/50 shadow-sm">
                             <div className="flex items-center gap-2">
-                                <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-                                <span className="text-xs">🔍 Querying PostGIS...</span>
+                                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                                <span className="text-xs">Sedang memproses...</span>
                             </div>
                         </div>
                     </div>
@@ -227,29 +206,24 @@ export default function ChatPanel({
             </div>
 
             {/* Input */}
-            <div className="flex-none p-3 border-t border-slate-700/50">
-                <div className="flex gap-2">
+            <div className="flex-none p-3 relative bg-transparent z-10 -mt-2">
+                <div className="glass px-2 py-2 flex items-center gap-2">
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                        placeholder="Tanyakan tentang data spasial..."
+                        placeholder="Tanya dengan gaya alami..."
                         disabled={isLoading}
-                        className="flex-1 bg-slate-800/80 text-sm text-white rounded-xl px-4 py-2.5
-                       border border-slate-700/50 focus:border-cyan-500/50 focus:outline-none
-                       focus:ring-1 focus:ring-cyan-500/30 placeholder-slate-500 transition-all
-                       disabled:opacity-50"
+                        className="flex-1 bg-transparent text-sm text-slate-800 px-3 py-1 outline-none placeholder:text-slate-400"
                     />
                     <button
                         onClick={handleSend}
                         disabled={isLoading || !input.trim()}
-                        className="flex-none w-10 h-10 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600
-                       flex items-center justify-center text-white shadow-lg shadow-cyan-500/20
-                       hover:shadow-cyan-500/40 transition-all disabled:opacity-40 disabled:shadow-none
-                       active:scale-95"
+                        className="flex-none w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 
+                                   flex items-center justify-center text-white transition-all shadow-sm"
                     >
-                        <Send className="w-4 h-4" />
+                        <Send className="w-3.5 h-3.5" />
                     </button>
                 </div>
             </div>

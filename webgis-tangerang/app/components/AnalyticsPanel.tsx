@@ -80,18 +80,18 @@ export default function AnalyticsPanel({
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-900/50 backdrop-blur-sm overflow-y-auto 
-                    scrollbar-thin scrollbar-thumb-slate-700">
+        <div className="flex flex-col h-full bg-transparent overflow-y-auto 
+                    scrollbar-thin">
             {/* Header */}
-            <div className="flex-none px-4 py-3 border-b border-slate-700/50">
+            <div className="flex-none px-4 py-3 border-b border-slate-200">
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 
                           flex items-center justify-center shadow-lg shadow-violet-500/20">
                         <TrendingUp className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-semibold text-white">Analytics</h2>
-                        <p className="text-[10px] text-slate-400">Real-time spatial metrics</p>
+                        <h2 className="text-sm font-semibold text-slate-800">Analytics</h2>
+                        <p className="text-[10px] text-slate-500">Real-time spatial metrics</p>
                     </div>
                 </div>
             </div>
@@ -115,32 +115,33 @@ export default function AnalyticsPanel({
 
                 {/* Active Query */}
                 {activeQuery && (
-                    <div className="bg-slate-800/60 rounded-xl border border-slate-700/40 p-3">
+                    <div className="glass p-3">
                         <div className="flex items-center gap-2 mb-1">
-                            <Search className="w-3 h-3 text-cyan-400" />
-                            <span className="text-[10px] text-cyan-400 font-medium uppercase tracking-wider">
+                            <Search className="w-3 h-3 text-blue-500" />
+                            <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
                                 Active Query
                             </span>
                         </div>
-                        <p className="text-xs text-slate-300 truncate">{activeQuery}</p>
+                        <p className="text-xs text-slate-700 font-mono truncate">{activeQuery}</p>
                     </div>
                 )}
 
                 {/* Bar Chart: Building Count by Type */}
-                <div className="bg-slate-800/40 rounded-xl border border-slate-700/30 p-3">
-                    <h3 className="text-xs font-medium text-slate-300 mb-3">Building Count by Type</h3>
+                <div className="glass p-3">
+                    <h3 className="text-xs font-semibold text-slate-700 mb-3">Distribution by Type</h3>
                     {stats.typeCounts.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={180}>
+                        <ResponsiveContainer width="100%" height={160}>
                             <BarChart data={stats.typeCounts} layout="vertical">
-                                <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} width={80} />
+                                <XAxis type="number" tick={{ fontSize: 10, fill: '#64748b' }} />
+                                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} width={80} />
                                 <Tooltip
                                     contentStyle={{
-                                        background: '#1e293b',
-                                        border: '1px solid #334155',
+                                        background: 'rgba(255,255,255,0.9)',
+                                        border: '1px solid #e2e8f0',
                                         borderRadius: '8px',
                                         fontSize: '11px',
-                                        color: '#e2e8f0',
+                                        color: '#334155',
+                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                                     }}
                                 />
                                 <Bar dataKey="count" radius={[0, 4, 4, 0]}>
@@ -156,10 +157,10 @@ export default function AnalyticsPanel({
                 </div>
 
                 {/* Pie Chart: Area Distribution by Type */}
-                <div className="bg-slate-800/40 rounded-xl border border-slate-700/30 p-3">
-                    <h3 className="text-xs font-medium text-slate-300 mb-3">Area Distribution by Type</h3>
+                <div className="glass p-3">
+                    <h3 className="text-xs font-semibold text-slate-700 mb-3">Area Coverage</h3>
                     {stats.areaByType.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={200}>
+                        <ResponsiveContainer width="100%" height={150}>
                             <PieChart>
                                 <Pie
                                     data={stats.areaByType}
@@ -177,17 +178,18 @@ export default function AnalyticsPanel({
                                 </Pie>
                                 <Tooltip
                                     contentStyle={{
-                                        background: '#1e293b',
-                                        border: '1px solid #334155',
+                                        background: 'rgba(255,255,255,0.9)',
+                                        border: '1px solid #e2e8f0',
                                         borderRadius: '8px',
                                         fontSize: '11px',
-                                        color: '#e2e8f0',
+                                        color: '#334155',
+                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                                     }}
                                     formatter={(value) => formatArea(Number(value ?? 0))}
                                 />
                                 <Legend
                                     iconSize={8}
-                                    wrapperStyle={{ fontSize: '10px', color: '#94a3b8' }}
+                                    wrapperStyle={{ fontSize: '10px', color: '#64748b' }}
                                 />
                             </PieChart>
                         </ResponsiveContainer>
@@ -213,15 +215,14 @@ function KPICard({
     gradient: string;
 }) {
     return (
-        <div className="bg-slate-800/60 rounded-xl border border-slate-700/40 p-3 group 
-                    hover:border-slate-600/50 transition-all">
+        <div className="glass p-3 group hover:border-slate-300 transition-all">
             <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${gradient} 
                        flex items-center justify-center text-white mb-2
-                       shadow-lg group-hover:scale-105 transition-transform`}>
+                       shadow-md group-hover:scale-105 transition-transform`}>
                 {icon}
             </div>
-            <p className="text-lg font-bold text-white">{value}</p>
-            <p className="text-[10px] text-slate-400">{label}</p>
+            <p className="text-lg font-bold text-slate-800 tracking-tight">{value}</p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">{label}</p>
         </div>
     );
 }

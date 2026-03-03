@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import dynamic from 'next/dynamic';
-import { Layers, Map, Eye, EyeOff } from 'lucide-react';
-import ChatPanel from './components/ChatPanel';
-import AnalyticsPanel from './components/AnalyticsPanel';
-import { RealtimeListener } from './components/RealtimeListener';
-import type { FlyToCommand } from './components/MapLibreMap';
+import dynamic from 'next/dynamic'; // Keep dynamic for the dynamic import
+import { Layers, Eye, EyeOff, Map } from 'lucide-react';
+import LeftSidebar from './components/LeftSidebar'; // New
+import RightPanel from './components/RightPanel'; // New
+import { RealtimeListener } from './components/RealtimeListener'; // Keep RealtimeListener
+import type { FlyToCommand } from './components/MapLibreMap'; // Keep type import
 
 // IMPORTANT: MapLibre must be loaded without SSR (uses window/document)
 const MapLibreMap = dynamic(() => import('./components/MapLibreMap'), {
@@ -95,20 +95,14 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="h-screen w-screen flex overflow-hidden bg-slate-950">
+    <main className="h-screen w-screen flex overflow-hidden bg-slate-100">
       {/* Supabase Realtime Bridge (invisible) */}
       <RealtimeListener sessionId={sessionId} onMapUpdate={handleRealtimeUpdate} />
 
-      {/* LEFT PANEL — Analytics Dashboard (25%) */}
-      <div className="w-[25%] min-w-[280px] h-full border-r border-slate-800/60">
-        <AnalyticsPanel
-          geojsonData={aiLayer.geojson}
-          buildingsData={buildingsData}
-          activeQuery={activeQuery}
-        />
-      </div>
+      {/* LEFT PANEL — Sidebar (Fixed 240px) */}
+      <LeftSidebar />
 
-      {/* CENTER — MapLibre Map (50%) */}
+      {/* CENTER — MapLibre Map (flex-1) */}
       <div className="flex-1 h-full relative">
         <MapLibreMap
           aiLayer={aiLayer}
@@ -120,72 +114,51 @@ export default function Home() {
           flyToCommand={flyToCommand}
         />
 
-        {/* Layer Toggle Controls (floating over map) */}
-        <div className="absolute top-3 left-3 z-10">
-          <button
-            onClick={() => setShowLayerPanel(!showLayerPanel)}
-            className="w-9 h-9 bg-slate-900/80 backdrop-blur-md border border-slate-700/50
-                       rounded-lg flex items-center justify-center text-white
-                       hover:bg-slate-800/90 transition-all shadow-xl"
-          >
-            <Layers className="w-4 h-4" />
-          </button>
-
-          {showLayerPanel && (
-            <div className="absolute top-11 left-0 bg-slate-900/90 backdrop-blur-md border 
-                            border-slate-700/50 rounded-xl p-3 space-y-2 shadow-2xl min-w-[180px]">
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium mb-2">
-                Map Layers
-              </p>
-              <LayerToggle
-                label="City Boundary"
-                active={showCity}
-                color="#3b82f6"
-                onToggle={() => setShowCity(!showCity)}
-              />
-              <LayerToggle
-                label="Buildings"
-                active={showBuildings}
-                color="#4ade80"
-                onToggle={() => setShowBuildings(!showBuildings)}
-              />
-              <LayerToggle
-                label="Kecamatan"
-                active={showKecamatan}
-                color="#f472b6"
-                onToggle={() => setShowKecamatan(!showKecamatan)}
-              />
-              <LayerToggle
-                label="Kelurahan"
-                active={showKelurahan}
-                color="#c084fc"
-                onToggle={() => setShowKelurahan(!showKelurahan)}
-              />
-            </div>
-          )}
+        {/* Small glassmorphism search bar (top-right) */}
+        <div className="absolute top-4 right-4 z-10">
+          <div className="glass px-4 py-2 flex items-center gap-2">
+            <span className="text-slate-400">🔍</span>
+            <input
+              type="text"
+              placeholder="Search locations..."
+              className="bg-transparent border-none outline-none text-sm w-48 text-slate-700 placeholder:text-slate-400"
+            />
+          </div>
         </div>
+
+        {/* Layer Toggle Controls (Mobile / Small Screen only ideally, but let's hide it completely since it's in the RightPanel now) */}
+        {/* We removed the floating layer panel to embrace the 3-column layout */}
 
         {/* AI Result Badge (floating over map) */}
         {aiLayer.geojson && aiLayer.geojson.features?.length > 0 && (
-          <div className="absolute bottom-4 left-4 z-10 bg-slate-900/80 backdrop-blur-md
-                          border border-cyan-500/30 rounded-xl px-3 py-2 shadow-xl shadow-cyan-500/10">
-            <p className="text-[10px] text-cyan-400 font-medium">
-              🔍 AI Result: {aiLayer.geojson.features.length} features
+          <div className="absolute bottom-6 left-6 z-10 glass px-4 py-2 shadow-xl shadow-cyan-500/5">
+            <p className="text-xs text-slate-700 font-medium flex items-center gap-2">
+              <span className="text-blue-500">✨</span> AI Result: {aiLayer.geojson.features.length} features
             </p>
           </div>
         )}
       </div>
 
-      {/* RIGHT PANEL — Chat UI (25%) */}
-      <div className="w-[25%] min-w-[300px] h-full border-l border-slate-800/60">
-        <ChatPanel
-          sessionId={sessionId}
-          selectedModel={selectedModel}
-          onModelChange={setSelectedModel}
-          onChatResponse={handleChatResponse}
-          onMapCommand={(cmd) => setFlyToCommand({ ...cmd })}
-        />
-      </div>
+      {/* RIGHT PANEL — Chat & Metrics (Fixed 360px) */}
+      <RightPanel
+        sessionId={sessionId}
+        selectedModel={selectedModel}
+        onModelChange={setSelectedModel}
+        onChatResponse={handleChatResponse}
+        onMapCommand={(cmd: FlyToCommand) => setFlyToCommand({ ...cmd })}
+        aiLayer={aiLayer}
+        geojsonData={aiLayer.geojson}
+        buildingsData={buildingsData}
+        activeQuery={activeQuery}
+        showCity={showCity}
+        setShowCity={setShowCity}
+        showBuildings={showBuildings}
+        setShowBuildings={setShowBuildings}
+        showKecamatan={showKecamatan}
+        setShowKecamatan={setShowKecamatan}
+        showKelurahan={showKelurahan}
+        setShowKelurahan={setShowKelurahan}
+      />
     </main>
   );
 }
@@ -215,11 +188,11 @@ function LayerToggle({
           borderColor: color,
         }}
       />
-      <span className="text-xs text-slate-300 flex-1 text-left">{label}</span>
+      <span className="text-xs text-slate-600 font-medium flex-1 text-left">{label}</span>
       {active ? (
-        <Eye className="w-3 h-3 text-slate-400" />
+        <Eye className="w-3 h-3 text-slate-500" />
       ) : (
-        <EyeOff className="w-3 h-3 text-slate-500" />
+        <EyeOff className="w-3 h-3 text-slate-400" />
       )}
     </button>
   );
