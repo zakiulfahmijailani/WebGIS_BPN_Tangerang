@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Layers, Upload, ChevronUp, ChevronDown, Eye, EyeOff, X } from 'lucide-react';
+import { Layers, Upload, ChevronDown, Eye, EyeOff, MoreHorizontal, Loader2 } from 'lucide-react';
 import { createClient } from '../../lib/supabaseClient';
 
 interface LayerBoxProps {
@@ -38,7 +38,72 @@ export default function LayerBox({
     const [uploading, setUploading] = useState(false);
     const [uploadedLayers, setUploadedLayers] = useState<UploadedLayer[]>([]);
     const [uploadError, setUploadError] = useState<string | null>(null);
+    const [loadingLayers, setLoadingLayers] = useState(true);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Load existing uploaded layers from Supabase on mount
+    useEffect(() => {
+        const loadLayers = async () => {
+            setLoadingLayers(true);
+            try {
+                const supabase = createClient();
+                // Get distinct layer names + feature counts
+                const { data, error } = await supabase
+                    .from('uploaded_layers')
+                    .select('layer_name')
+                    .order('layer_name');
+
+                if (error) {
+                    console.error('Failed to load layers:', error);
+                    return;
+                }
+
+                if (data && data.length > 0) {
+                    // Group by layer_name to get unique layers + count
+                    const layerMap = new Map<string, number>();
+                    data.forEach((row: { layer_name: string }) => {
+                        layerMap.set(row.layer_name, (layerMap.get(row.layer_name) || 0) + 1);
+                    });
+
+                    const layers: UploadedLayer[] = Array.from(layerMap.entries()).map(
+                        ([name, count], idx) => ({
+                            name,
+                            featureCount: count,
+                            visible: true,
+                            color: LAYER_COLORS[idx % LAYER_COLORS.length],
+                        })
+                    );
+                    setUploadedLayers(layers);
+
+                    // Also fetch full GeoJSON for the first layer to show on map
+                    if (layers.length > 0 && onGeoJSONUploaded) {
+                        const { data: features } = await supabase
+                            .from('uploaded_layers')
+                            .select('properties, geom')
+                            .eq('layer_name', layers[0].name);
+
+                        if (features && features.length > 0) {
+                            const geojson: GeoJSON.FeatureCollection = {
+                                type: 'FeatureCollection',
+                                features: features.map((f: { properties: any; geom: string }) => ({
+                                    type: 'Feature',
+                                    properties: f.properties,
+                                    geometry: typeof f.geom === 'string' ? JSON.parse(f.geom) : f.geom,
+                                })),
+                            };
+                            onGeoJSONUploaded(geojson);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading layers:', err);
+            } finally {
+                setLoadingLayers(false);
+            }
+        };
+
+        loadLayers();
+    }, []);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -62,12 +127,27 @@ export default function LayerBox({
                 return;
             }
 
-            // Save to Supabase
+            const layerName = file.name.replace(/\.(geojson|json)$/, '');
             const supabase = createClient();
 
-            // Insert each feature into a generic uploaded_layers table
+            // Check apakah layer dengan nama ini sudah ada
+            const { data: existing } = await supabase
+                .from('uploaded_layers')
+                .select('layer_name')
+                .eq('layer_name', layerName)
+                .limit(1);
+
+            if (existing && existing.length > 0) {
+                // Hapus dulu yang lama
+                await supabase
+                    .from('uploaded_layers')
+                    .delete()
+                    .eq('layer_name', layerName);
+            }
+
+            // Insert semua features ke Supabase
             const rows = geojson.features.map((f: any, idx: number) => ({
-                layer_name: file.name.replace(/\.(geojson|json)$/, ''),
+                layer_name: layerName,
                 feature_index: idx,
                 properties: f.properties || {},
                 geom: JSON.stringify(f.geometry),
@@ -79,18 +159,28 @@ export default function LayerBox({
 
             if (dbError) {
                 console.error('Supabase insert error:', dbError);
-                // Continue anyway — show on map even if DB fails
+                setUploadError(`Gagal simpan ke database: ${dbError.message}`);
+                setUploading(false);
+                return;
             }
 
-            // Display on map
-            const newLayer: UploadedLayer = {
-                name: file.name.replace(/\.(geojson|json)$/, ''),
-                featureCount: geojson.features.length,
-                visible: true,
-                color: LAYER_COLORS[uploadedLayers.length % LAYER_COLORS.length],
-            };
-            setUploadedLayers(prev => [...prev, newLayer]);
+            // Tambahkan ke tampilan layer box
+            setUploadedLayers(prev => {
+                // Cek kalau sudah ada (replace), kalau belum add
+                const exists = prev.findIndex(l => l.name === layerName);
+                const newLayer: UploadedLayer = {
+                    name: layerName,
+                    featureCount: geojson.features.length,
+                    visible: true,
+                    color: LAYER_COLORS[exists >= 0 ? exists : prev.length % LAYER_COLORS.length],
+                };
+                if (exists >= 0) {
+                    return prev.map((l, i) => i === exists ? newLayer : l);
+                }
+                return [...prev, newLayer];
+            });
 
+            // Tampilkan di peta
             if (onGeoJSONUploaded) {
                 onGeoJSONUploaded(geojson);
             }
@@ -100,6 +190,26 @@ export default function LayerBox({
         } finally {
             setUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleDeleteLayer = async (layerName: string, idx: number) => {
+        try {
+            const supabase = createClient();
+            const { error } = await supabase
+                .from('uploaded_layers')
+                .delete()
+                .eq('layer_name', layerName);
+
+            if (error) {
+                console.error('Supabase delete error:', error);
+                return;
+            }
+
+            // Hapus dari UI setelah berhasil delete dari DB
+            setUploadedLayers(prev => prev.filter((_, i) => i !== idx));
+        } catch (err) {
+            console.error('Delete error:', err);
         }
     };
 
@@ -139,6 +249,21 @@ export default function LayerBox({
                 <LayerRow id="kecamatan" label="Kecamatan" active={showKecamatan} color="#f472b6" onToggle={() => setShowKecamatan(!showKecamatan)} onAction={onLayerAction} />
                 <LayerRow id="kelurahan" label="Kelurahan" active={showKelurahan} color="#c084fc" onToggle={() => setShowKelurahan(!showKelurahan)} onAction={onLayerAction} />
 
+                {/* Divider jika ada uploaded layers */}
+                {uploadedLayers.length > 0 && (
+                    <div className="border-t border-white/10 my-1 pt-1">
+                        <span className="text-[9px] uppercase tracking-wider text-slate-500 px-2">Uploaded</span>
+                    </div>
+                )}
+
+                {/* Loading state */}
+                {loadingLayers && (
+                    <div className="flex items-center gap-2 px-2 py-1.5 text-slate-500">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span className="text-[10px]">Loading layers...</span>
+                    </div>
+                )}
+
                 {/* Uploaded layers */}
                 {uploadedLayers.map((layer, idx) => (
                     <LayerRow
@@ -153,10 +278,10 @@ export default function LayerBox({
                         }}
                         onAction={(action, lId) => {
                             if (action === 'delete') {
-                                setUploadedLayers(prev => prev.filter((_, i) => i !== idx));
+                                handleDeleteLayer(layer.name, idx);
+                            } else {
+                                onLayerAction?.(action, lId);
                             }
-                            // Still bubble up to page for zoom/export/global delete reaction
-                            onLayerAction?.(action, lId);
                         }}
                     />
                 ))}
@@ -177,8 +302,12 @@ export default function LayerBox({
                     className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium 
                                bg-white/10 hover:bg-white/15 rounded-lg transition-all disabled:opacity-50"
                 >
-                    <Upload className="w-3.5 h-3.5" />
-                    {uploading ? 'Uploading...' : 'Upload GeoJSON'}
+                    {uploading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                        <Upload className="w-3.5 h-3.5" />
+                    )}
+                    {uploading ? 'Uploading ke Supabase...' : 'Upload GeoJSON'}
                 </button>
                 {uploadError && (
                     <p className="text-[10px] text-red-400 mt-1 px-1">{uploadError}</p>
@@ -187,8 +316,6 @@ export default function LayerBox({
         </div>
     );
 }
-
-import { MoreHorizontal } from 'lucide-react';
 
 function LayerRow({
     id,
@@ -241,11 +368,8 @@ function LayerRow({
                         }}
                     />
                     <span className="text-xs text-slate-300 font-medium text-left truncate flex-1">{label}</span>
-                    <span className="text-[10px] text-slate-500 flex-shrink-0 mr-1">
-                        EPSG:4326
-                    </span>
                     {count !== undefined && (
-                        <span className="text-[10px] text-slate-500 mr-1 flex-shrink-0">{count}</span>
+                        <span className="text-[10px] text-slate-500 mr-1 flex-shrink-0">{count} ft</span>
                     )}
                 </div>
 
