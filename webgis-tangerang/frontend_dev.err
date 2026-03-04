@@ -40,3 +40,42 @@
   httpRequest: [Object],
   httpResponse: [Object]
 }
+[Embedding] HuggingFace error: Error [ProviderApiError]: Failed to perform inference: an HTTP error occurred when requesting the provider
+    at async generateEmbedding (lib\embedding.ts:11:26)
+    at async POST (app\api\chat\route.ts:128:27)
+   9 | export async function generateEmbedding(text: string): Promise<number[]> {
+  10 |     try {
+> 11 |         const response = await hf.featureExtraction({
+     |                          ^
+  12 |             model: 'sentence-transformers/all-MiniLM-L6-v2',
+  13 |             inputs: text,
+  14 |         }); {
+  httpRequest: [Object],
+  httpResponse: [Object]
+}
+[Embedding] HuggingFace error: Error [ProviderApiError]: Failed to perform inference: an HTTP error occurred when requesting the provider
+    at async generateEmbedding (lib\embedding.ts:11:26)
+    at async POST (app\api\chat\route.ts:128:27)
+   9 | export async function generateEmbedding(text: string): Promise<number[]> {
+  10 |     try {
+> 11 |         const response = await hf.featureExtraction({
+     |                          ^
+  12 |             model: 'sentence-transformers/all-MiniLM-L6-v2',
+  13 |             inputs: text,
+  14 |         }); {
+  httpRequest: [Object],
+  httpResponse: [Object]
+}
+[Embedding] HuggingFace error: Error [ProviderApiError]: Failed to perform inference: an HTTP error occurred when requesting the provider
+    at async generateEmbedding (lib\embedding.ts:11:26)
+    at async POST (app\api\chat\route.ts:128:27)
+   9 | export async function generateEmbedding(text: string): Promise<number[]> {
+  10 |     try {
+> 11 |         const response = await hf.featureExtraction({
+     |                          ^
+  12 |             model: 'sentence-transformers/all-MiniLM-L6-v2',
+  13 |             inputs: text,
+  14 |         }); {
+  httpRequest: [Object],
+  httpResponse: [Object]
+}

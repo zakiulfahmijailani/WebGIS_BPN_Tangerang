@@ -45,29 +45,7 @@ export default function MapLibreMap({
     useEffect(() => {
         if (!mapContainer.current || map.current) return;
 
-        const mapTilerKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-        const styleUrl = mapTilerKey && mapTilerKey !== 'YOUR_MAPTILER_API_KEY'
-            ? `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${mapTilerKey}`
-            : {
-                version: 8,
-                sources: {
-                    osm: {
-                        type: 'raster',
-                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                        tileSize: 256,
-                        attribution: '&copy; OpenStreetMap Contributors',
-                    },
-                },
-                layers: [
-                    {
-                        id: 'osm-tiles',
-                        type: 'raster',
-                        source: 'osm',
-                        minzoom: 0,
-                        maxzoom: 19,
-                    },
-                ],
-            };
+        const styleUrl = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 
         map.current = new maplibregl.Map({
             container: mapContainer.current,
@@ -208,17 +186,8 @@ export default function MapLibreMap({
                     type: 'fill',
                     source: 'buildings-source',
                     paint: {
-                        'fill-color': [
-                            'match',
-                            ['get', 'type'],
-                            'Residential', '#4ade80',
-                            'Commercial', '#facc15',
-                            'Public', '#60a5fa',
-                            'Industrial', '#f97316',
-                            'Empty', '#a1a1aa',
-                            '#94a3b8',
-                        ],
-                        'fill-opacity': 0.6,
+                        'fill-color': '#1e40af', // Biru Pekat (Deep Blue)
+                        'fill-opacity': 0.7,
                     },
                 });
                 map.current!.addLayer({

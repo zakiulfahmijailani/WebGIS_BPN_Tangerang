@@ -244,10 +244,10 @@ export default function LayerBox({
 
             {/* Layer List */}
             <div className="px-2 py-2 space-y-0.5 max-h-[250px] overflow-y-auto scrollbar-thin">
-                <LayerRow id="city" label="City Boundary" active={showCity} color="#3b82f6" onToggle={() => setShowCity(!showCity)} onAction={onLayerAction} />
                 <LayerRow id="buildings" label="Buildings" active={showBuildings} color="#4ade80" onToggle={() => setShowBuildings(!showBuildings)} onAction={onLayerAction} />
-                <LayerRow id="kecamatan" label="Kecamatan" active={showKecamatan} color="#f472b6" onToggle={() => setShowKecamatan(!showKecamatan)} onAction={onLayerAction} />
                 <LayerRow id="kelurahan" label="Kelurahan" active={showKelurahan} color="#c084fc" onToggle={() => setShowKelurahan(!showKelurahan)} onAction={onLayerAction} />
+                <LayerRow id="kecamatan" label="Batas Kecamatan" active={showKecamatan} color="#f472b6" onToggle={() => setShowKecamatan(!showKecamatan)} onAction={onLayerAction} />
+                <LayerRow id="city" label="Batas Kota" active={showCity} color="#3b82f6" onToggle={() => setShowCity(!showCity)} onAction={onLayerAction} />
 
                 {/* Divider jika ada uploaded layers */}
                 {uploadedLayers.length > 0 && (
