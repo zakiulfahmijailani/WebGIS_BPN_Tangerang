@@ -228,23 +228,30 @@ app.post('/api/chat', async (req, res) => {
   // ═══════════════════════════════════════════
   // STEP B: Pass 1 — SQL Generation
   // ═══════════════════════════════════════════
-  const sqlSystemPrompt = `You are a master PostGIS SQL generator for Tangerang City. 
-OUTPUT FORMAT: You MUST return ONLY a valid JSON object in this exact format: {"sql": "SELECT ... "} or {"error": "Reason why it cannot be processed"}. No markdown, no conversational text.
+  const sqlSystemPrompt = `You are a PostGIS SQL Database Engine for Tangerang City.
+YOU MUST RESPOND ONLY WITH A MINIFIED JSON OBJECT. NO EXPLANATIONS. NO MARKDOWN.
 
-DATABASE SCHEMA:
-- Table: tangerang_buildings (Columns: id (int), geom (geometry, SRID 4326), type (text), area (numeric))
-- Table: kotatangerang_kecamatan_boundary (Columns: id (int), geom (geometry, SRID 4326), kecamatan_name (text))
+SCHEMA:
+- tangerang_buildings (id, geom, type, area)
+- kota_tangerang_kecamatan_boundary (id, geom, kecamatan_name)
 
-CRITICAL SPATIAL SQL RULES:
-1. THE GEOJSON WRAPPER: Your query MUST wrap the final output perfectly like this:
-   SELECT jsonb_build_object('type', 'FeatureCollection', 'features', COALESCE(jsonb_agg(ST_AsGeoJSON(t.*)::jsonb), '[]'::jsonb)) AS geojson FROM ( [YOUR QUERY HERE] LIMIT 1000 ) t;
-2. NEGATIVE FILTERS: If the user asks for "non-public" or "exclude", use type NOT ILIKE '%public%'.
-3. SPATIAL JOINS: If the user asks for a specific district/kecamatan (e.g. "North district", "Benda"), you MUST do an inner join: 
-   JOIN kotatangerang_kecamatan_boundary k ON ST_Intersects(b.geom, k.geom) WHERE k.kecamatan_name ILIKE '%[name]%'.
-4. DISTANCE/BUFFER: The geom is SRID 4326. To check distance in meters (e.g., "within 500m of the river"), you MUST cast to geography: ST_DWithin(b.geom::geography, target.geom::geography, 500).
-5. OUT OF BOUNDS: If they ask for Jakarta, weather, or non-spatial concepts, return {"error": "I only analyze Tangerang cadastral data."}.`;
+ROUTING RULES:
+1. QUERY TYPE "data":
+   - Use if user asks for FACTS, LISTS, NAMES, or NUMBERS (e.g., "Apa saja kecamatan di Tangerang?", "Berapa jumlah bangunan?").
+   - Action: Write RAW SQL to get the data (NO GeoJSON, NO ST_AsGeoJSON).
+   - Example output: {"type": "data", "sql": "SELECT DISTINCT kecamatan_name FROM kota_tangerang_kecamatan_boundary ORDER BY kecamatan_name"}
+
+2. QUERY TYPE "spatial":
+   - Use if user asks to SEE features ON THE MAP (e.g., "Tampilkan seluruh bangunan", "Tampilkan kecamatan Benda").
+   - Action: You MUST wrap the query in GeoJSON like this:
+     SELECT jsonb_build_object('type', 'FeatureCollection', 'features', COALESCE(jsonb_agg(ST_AsGeoJSON(t.*)::jsonb), '[]'::jsonb)) AS result FROM ( YOUR SPATIAL QUERY ) t;
+   - Example output: {"type": "spatial", "sql": "SELECT jsonb_build_object(...) AS result FROM (SELECT * FROM tangerang_buildings LIMIT 10) t"}
+
+3. OUT OF BOUNDS:
+   - Return {"error": "Hanya menjawab topik Tangerang."} if unrelated.`;
 
   let generatedSQL = null;
+  let queryType = 'spatial';
   let errorResponse = null;
   let geojsonResult = null;
   let pass1Raw = '';
@@ -267,11 +274,12 @@ CRITICAL SPATIAL SQL RULES:
       console.log('[Pass 1] LLM returned error:', errorResponse);
     } else {
       generatedSQL = parsed.sql;
+      queryType = parsed.type || 'spatial';
       if (!generatedSQL || generatedSQL === 'null' || generatedSQL === null) {
         console.log('[Pass 1] No SQL needed');
         generatedSQL = null;
       } else {
-        console.log('[Pass 1] Generated SQL:', generatedSQL);
+        console.log(`[Pass 1] Generated SQL (${queryType}):`, generatedSQL);
       }
     }
   } catch (parseErr) {
@@ -292,24 +300,34 @@ CRITICAL SPATIAL SQL RULES:
   // ═══════════════════════════════════════════
   // STEP C: Execute SQL (LLM generates full GeoJSON-wrapped query)
   // ═══════════════════════════════════════════
+  let dataResult = null;
+
   if (generatedSQL) {
     try {
-      console.log('[DB] Executing LLM-generated SQL directly...');
+      console.log(`[DB] Executing LLM-generated SQL directly (${queryType})...`);
       const dbRes = await pool.query(generatedSQL);
-      geojsonResult = dbRes.rows[0]?.geojson || dbRes.rows[0]?.result || { type: 'FeatureCollection', features: [] };
-      if (typeof geojsonResult === 'string') geojsonResult = JSON.parse(geojsonResult);
-      console.log(`[DB] Returned ${geojsonResult.features?.length || 0} features`);
+
+      if (queryType === 'spatial') {
+        geojsonResult = dbRes.rows[0]?.geojson || dbRes.rows[0]?.result || { type: 'FeatureCollection', features: [] };
+        if (typeof geojsonResult === 'string') geojsonResult = JSON.parse(geojsonResult);
+        console.log(`[DB] Returned ${geojsonResult.features?.length || 0} spatial features`);
+      } else {
+        dataResult = dbRes.rows;
+        console.log(`[DB] Returned ${dataResult.length} data rows`);
+      }
     } catch (sqlErr) {
       console.error('[DB] Direct SQL failed:', sqlErr.message);
-      // Fallback: try wrapping with server-side helper
-      try {
-        console.log('[DB] Retrying with wrapAsGeoJSON fallback...');
-        const dbRes = await pool.query(wrapAsGeoJSON(generatedSQL));
-        geojsonResult = dbRes.rows[0]?.result || { type: 'FeatureCollection', features: [] };
-        console.log(`[DB] Fallback returned ${geojsonResult.features?.length || 0} features`);
-      } catch (fallbackErr) {
-        console.error('[DB] Fallback also failed:', fallbackErr.message);
-        geojsonResult = null;
+      if (queryType === 'spatial') {
+        // Fallback: try wrapping with server-side helper if it forgot
+        try {
+          console.log('[DB] Retrying with wrapAsGeoJSON fallback...');
+          const dbRes = await pool.query(wrapAsGeoJSON(generatedSQL));
+          geojsonResult = dbRes.rows[0]?.result || { type: 'FeatureCollection', features: [] };
+          console.log(`[DB] Fallback returned ${geojsonResult.features?.length || 0} features`);
+        } catch (fallbackErr) {
+          console.error('[DB] Fallback also failed:', fallbackErr.message);
+          geojsonResult = null;
+        }
       }
     }
   }
@@ -322,24 +340,24 @@ CRITICAL SPATIAL SQL RULES:
     const featureCount = geojsonResult?.features?.length || 0;
     let contextForPass2;
 
-    if (geojsonResult && featureCount > 0) {
-      contextForPass2 = `User asked: "${latestMessage}". Database query returned ${featureCount} building features. Write a helpful 1-2 sentence response explaining what was found. Please write in Indonesian.`;
-    } else if (generatedSQL && !geojsonResult) {
-      contextForPass2 = `User asked: "${latestMessage}". The SQL query failed. Write a helpful 1-2 sentence response apologizing in Indonesian.`;
-    } else if (generatedSQL && featureCount === 0) {
-      contextForPass2 = `User asked: "${latestMessage}". Database query returned 0 results. Write a helpful 1-2 sentence response explaining no matching buildings were found. Please write in Indonesian.`;
+    if (queryType === 'spatial' && geojsonResult && featureCount > 0) {
+      contextForPass2 = `User asked: "${latestMessage}". Database query returned ${featureCount} building features on the map. Write a helpful 1-2 sentence response explaining what was found. Please write in Indonesian.`;
+    } else if (queryType === 'data' && dataResult) {
+      contextForPass2 = `User asked: "${latestMessage}". Database query returned this raw JSON data: ${JSON.stringify(dataResult)}. Answer the user's question clearly and accurately based ONLY on this data. Use bullet points or a numbered list. DO NOT mention JSON or SQL, just focus on the answer. Please write in Indonesian.`;
+    } else if (generatedSQL && !geojsonResult && !dataResult) {
+      contextForPass2 = `User asked: "${latestMessage}". The database SQL query failed to run. Write a helpful 1-2 sentence response apologizing in Indonesian.`;
+    } else if (queryType === 'spatial' && featureCount === 0) {
+      contextForPass2 = `User asked: "${latestMessage}". Database spatial query returned 0 results. Write a helpful 1-2 sentence response explaining no matching buildings were found. Please write in Indonesian.`;
     } else {
-      contextForPass2 = `User asked: "${latestMessage}". This is a general question. Answer helpfully and warmly in 1-2 sentences in Indonesian.`;
+      contextForPass2 = `User asked: "${latestMessage}". This is a general question or conversational. Answer helpfully and warmly in 1-2 sentences in Indonesian.`;
     }
 
     console.log('[Pass 2] Generating conversational response...');
-    chatText = await callOpenRouter(selectedModel, 'You are a helpful WebGIS assistant for Tangerang City. Write friendly, 1-2 sentence responses in Indonesian.', contextForPass2);
+    chatText = await callOpenRouter(selectedModel, 'You are a helpful WebGIS assistant for Tangerang City. Write friendly, professional responses in Indonesian.', contextForPass2);
     console.log('[Pass 2] Response:', chatText);
   } catch (pass2Err) {
     console.error('[Pass 2] Failed:', pass2Err.message);
-    chatText = geojsonResult
-      ? `Ditemukan ${geojsonResult.features?.length || 0} bangunan yang cocok dengan kueri Anda.`
-      : 'Maaf, saya mengalami kesalahan saat mencoba memberikan balasan.';
+    chatText = 'Maaf, saya mengalami kesalahan saat mencoba memberikan balasan.';
   }
 
   // ═══════════════════════════════════════════

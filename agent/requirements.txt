@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+pydantic-ai[openai]
+asyncpg
+sse-starlette
+python-dotenv
+httpx
