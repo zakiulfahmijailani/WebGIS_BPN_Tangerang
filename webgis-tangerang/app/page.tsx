@@ -207,6 +207,14 @@ export default function Home() {
       <LeftSidebar
         isCollapsed={isLeftCollapsed}
         onToggle={() => setIsLeftCollapsed(!isLeftCollapsed)}
+        showBuildings={showBuildings}
+        setShowBuildings={setShowBuildings}
+        showCity={showCity}
+        setShowCity={setShowCity}
+        showKecamatan={showKecamatan}
+        setShowKecamatan={setShowKecamatan}
+        showKelurahan={showKelurahan}
+        setShowKelurahan={setShowKelurahan}
       />
 
       {/* CENTER — MapLibre Map (flex-1) */}

@@ -67,6 +67,13 @@ interface ChatPanelProps {
     onMapCommand: (cmd: FlyToCommand) => void;
 }
 
+const QUICK_SUGGESTIONS = [
+    "Tampilkan semua bangunan",
+    "Kecamatan dengan bangunan terbanyak",
+    "Data update terbaru",
+    "Bangunan komersial di Cipondoh",
+];
+
 export default function ChatPanel({
     sessionId,
     selectedModel,
@@ -84,6 +91,7 @@ export default function ChatPanel({
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [suggestionsOpen, setSuggestionsOpen] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -207,7 +215,28 @@ export default function ChatPanel({
 
             {/* Input */}
             <div className="flex-none p-3 relative bg-transparent z-10 -mt-2">
+                {/* Quick Suggestions */}
+                {suggestionsOpen && (
+                    <div className="flex flex-wrap gap-1 mb-2 px-1">
+                        {QUICK_SUGGESTIONS.map((q, i) => (
+                            <button
+                                key={i}
+                                onClick={() => { setInput(q); setSuggestionsOpen(false); }}
+                                className="px-2.5 py-1 rounded-lg text-[11px] bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 border border-blue-100 transition-all"
+                            >
+                                {q}
+                            </button>
+                        ))}
+                    </div>
+                )}
                 <div className="glass px-2 py-2 flex items-center gap-2">
+                    <button
+                        onClick={() => setSuggestionsOpen(!suggestionsOpen)}
+                        className="flex-none w-8 h-8 rounded-lg hover:bg-blue-50 flex items-center justify-center text-blue-400 hover:text-blue-600 transition-all"
+                        title="Quick Suggestions"
+                    >
+                        <Sparkles className="w-3.5 h-3.5" />
+                    </button>
                     <input
                         type="text"
                         value={input}

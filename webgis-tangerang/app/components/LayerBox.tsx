@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Layers, Upload, ChevronDown, Eye, EyeOff, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Layers, Upload, ChevronDown, Eye, EyeOff, MoreHorizontal, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { createClient } from '../../lib/supabaseClient';
 
 interface LayerBoxProps {
@@ -40,6 +40,39 @@ export default function LayerBox({
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [loadingLayers, setLoadingLayers] = useState(true);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Built-in layer order (reorderable)
+    const [builtinOrder, setBuiltinOrder] = useState([
+        { id: 'buildings', label: 'Buildings', color: '#4ade80' },
+        { id: 'kelurahan', label: 'Kelurahan', color: '#c084fc' },
+        { id: 'kecamatan', label: 'Batas Kecamatan', color: '#f472b6' },
+        { id: 'city', label: 'Batas Kota', color: '#3b82f6' },
+    ]);
+
+    const isActive = (id: string) => {
+        if (id === 'buildings') return showBuildings;
+        if (id === 'kelurahan') return showKelurahan;
+        if (id === 'kecamatan') return showKecamatan;
+        if (id === 'city') return showCity;
+        return false;
+    };
+
+    const doToggle = (id: string) => {
+        if (id === 'buildings') setShowBuildings(!showBuildings);
+        else if (id === 'kelurahan') setShowKelurahan(!showKelurahan);
+        else if (id === 'kecamatan') setShowKecamatan(!showKecamatan);
+        else if (id === 'city') setShowCity(!showCity);
+    };
+
+    const moveBuiltinLayer = (idx: number, dir: -1 | 1) => {
+        const target = idx + dir;
+        if (target < 0 || target >= builtinOrder.length) return;
+        setBuiltinOrder(prev => {
+            const copy = [...prev];
+            [copy[idx], copy[target]] = [copy[target], copy[idx]];
+            return copy;
+        });
+    };
 
     // Load existing uploaded layers from Supabase on mount
     useEffect(() => {
@@ -244,11 +277,40 @@ export default function LayerBox({
             </div>
 
             {/* Layer List */}
-            <div className="px-2 py-2 space-y-0.5 max-h-[250px] overflow-y-auto scrollbar-thin">
-                <LayerRow id="buildings" label="Buildings" active={showBuildings} color="#4ade80" onToggle={() => setShowBuildings(!showBuildings)} onAction={onLayerAction} />
-                <LayerRow id="kelurahan" label="Kelurahan" active={showKelurahan} color="#c084fc" onToggle={() => setShowKelurahan(!showKelurahan)} onAction={onLayerAction} />
-                <LayerRow id="kecamatan" label="Batas Kecamatan" active={showKecamatan} color="#f472b6" onToggle={() => setShowKecamatan(!showKecamatan)} onAction={onLayerAction} />
-                <LayerRow id="city" label="Batas Kota" active={showCity} color="#3b82f6" onToggle={() => setShowCity(!showCity)} onAction={onLayerAction} />
+            <div className="px-2 py-2 space-y-0.5 max-h-[300px] overflow-y-auto scrollbar-thin">
+                {builtinOrder.map((layer, idx) => (
+                    <div key={layer.id} className="relative group flex items-center w-full">
+                        {/* Reorder Arrows */}
+                        <div className="flex flex-col gap-0 mr-0.5 opacity-0 group-hover:opacity-70 transition-opacity">
+                            <button
+                                onClick={() => moveBuiltinLayer(idx, -1)}
+                                disabled={idx === 0}
+                                className="text-slate-600 hover:text-white disabled:opacity-20 p-0.5"
+                                title="Move Up"
+                            >
+                                <ArrowUp className="w-2.5 h-2.5" />
+                            </button>
+                            <button
+                                onClick={() => moveBuiltinLayer(idx, 1)}
+                                disabled={idx === builtinOrder.length - 1}
+                                className="text-slate-600 hover:text-white disabled:opacity-20 p-0.5"
+                                title="Move Down"
+                            >
+                                <ArrowDown className="w-2.5 h-2.5" />
+                            </button>
+                        </div>
+                        <div className="flex-1">
+                            <LayerRow
+                                id={layer.id}
+                                label={layer.label}
+                                active={isActive(layer.id)}
+                                color={layer.color}
+                                onToggle={() => doToggle(layer.id)}
+                                onAction={onLayerAction}
+                            />
+                        </div>
+                    </div>
+                ))}
 
                 {/* Divider jika ada uploaded layers */}
                 {uploadedLayers.length > 0 && (

@@ -58,6 +58,37 @@ body {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
 }
 
+/* Deep dark futuristic glass — left sidebar */
+.glass-dark-deep {
+  background: linear-gradient(175deg, rgba(8, 12, 28, 0.95) 0%, rgba(15, 20, 40, 0.92) 100%);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border-right: 1px solid rgba(56, 189, 248, 0.08);
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.3),
+    inset 0 0 80px rgba(56, 189, 248, 0.02);
+}
+
+/* Sidebar dark input field */
+.sidebar-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #e2e8f0;
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.sidebar-input:focus {
+  border-color: rgba(56, 189, 248, 0.3);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.08);
+}
+
+.sidebar-input::placeholder {
+  color: #475569;
+}
+
 /* MapLibre overrides */
 .maplibregl-ctrl-group {
   background: rgba(255, 255, 255, 0.8) !important;
