@@ -54,7 +54,8 @@ export default function LayerBox({
                     .order('layer_name');
 
                 if (error) {
-                    console.error('Failed to load layers:', error);
+                    console.error('Failed to load layers:', error.message || error);
+                    setLoadingLayers(false);
                     return;
                 }
 

@@ -73,3 +73,18 @@ ALTER TABLE ai_map_updates REPLICA IDENTITY FULL;
 -- NOTE: After running this migration, go to:
 -- Supabase Dashboard → Database → Replication → 
 -- Enable Realtime for the "ai_map_updates" table
+
+-- ====================================================
+-- User Uploaded Layers Table (NEW)
+-- ====================================================
+CREATE TABLE IF NOT EXISTS uploaded_layers (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  layer_name text NOT NULL,
+  feature_index integer,
+  properties jsonb,
+  geom jsonb, -- Storing as JSONB since it's uploaded GeoJSON
+  created_at timestamptz DEFAULT now()
+);
+
+-- Index for performance when loading/deleting layers by name
+CREATE INDEX IF NOT EXISTS uploaded_layers_name_idx ON uploaded_layers (layer_name);

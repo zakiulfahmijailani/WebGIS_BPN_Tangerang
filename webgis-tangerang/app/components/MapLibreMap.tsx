@@ -80,6 +80,21 @@ export default function MapLibreMap({
 
             if (!features.length) return;
 
+            // Enforce logical priority when multiple layers are clicked
+            const priority: Record<string, number> = {
+                'ai-result-layer': 1,
+                'buildings-fill': 2,
+                'kelurahan-fill': 3,
+                'kecamatan-fill': 4,
+                'city-fill': 5
+            };
+
+            features.sort((a, b) => {
+                const pA = priority[a.layer.id] || 99;
+                const pB = priority[b.layer.id] || 99;
+                return pA - pB;
+            });
+
             const feature = features[0];
             const props = feature.properties || {};
             const layerId = feature.layer.id;
@@ -169,6 +184,25 @@ export default function MapLibreMap({
         }
     }, [flyToCommand]);
 
+    // Enforce rendering order (Bottom to Top)
+    const enforceLayerOrder = useCallback(() => {
+        if (!map.current) return;
+        const map_ = map.current;
+        const order = [
+            'city-fill', 'city-outline',
+            'kecamatan-fill', 'kecamatan-outline',
+            'kelurahan-fill', 'kelurahan-outline',
+            'buildings-fill', 'buildings-outline',
+            'ai-result-layer', 'ai-result-outline'
+        ];
+
+        for (const layerId of order) {
+            if (map_.getLayer(layerId)) {
+                map_.moveLayer(layerId); // Moves to front
+            }
+        }
+    }, []);
+
     // Load buildings layer on mount
     useEffect(() => {
         if (!map.current || !buildingsData) return;
@@ -200,6 +234,7 @@ export default function MapLibreMap({
                     },
                 });
             }
+            enforceLayerOrder();
         };
 
         if (map.current.isStyleLoaded()) {
@@ -236,8 +271,7 @@ export default function MapLibreMap({
                     source: `${layerName}-source`,
                     paint: {
                         'line-color': color,
-                        'line-width': 2,
-                        'line-dasharray': [3, 2],
+                        'line-width': 3.5,
                     },
                 });
                 map.current!.addLayer({
@@ -246,10 +280,11 @@ export default function MapLibreMap({
                     source: `${layerName}-source`,
                     paint: {
                         'fill-color': color,
-                        'fill-opacity': 0.05,
+                        'fill-opacity': 0,
                     },
                 });
             }
+            enforceLayerOrder();
         } catch (err) {
             console.error(`Failed to load ${layerName}:`, err);
         }
@@ -367,6 +402,7 @@ export default function MapLibreMap({
                     map_.fitBounds(bounds, { padding: 60, maxZoom: 16 });
                 }
             }
+            enforceLayerOrder();
         };
 
         if (map_.isStyleLoaded()) {

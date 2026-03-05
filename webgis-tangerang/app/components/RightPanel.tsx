@@ -47,16 +47,16 @@ export default function RightPanel({
     activeQuery,
 }: RightPanelProps) {
     return (
-        <div className={`flex-shrink-0 h-full flex flex-col border-l border-white/15 relative z-10 transition-all duration-300 ${isCollapsed ? 'w-[64px]' : 'w-[360px]'}`}
+        <div className={`flex-shrink-0 h-full flex flex-col border-l border-white/30 relative z-10 transition-all duration-300 shadow-[-8px_0_32px_rgba(0,0,0,0.05)] ${isCollapsed ? 'w-[64px]' : 'w-[440px]'}`}
             style={{
-                background: 'rgba(255, 255, 255, 0.45)',
-                backdropFilter: 'blur(24px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+                background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.15) 100%)',
+                backdropFilter: 'blur(28px) saturate(200%)',
+                WebkitBackdropFilter: 'blur(28px) saturate(200%)',
             }}
         >
             {/* 1. Header (Always Visible) */}
-            <div className={`flex-none border-b border-white/20 transition-all duration-300 ${isCollapsed ? 'py-6' : 'p-4'}`}
-                style={{ background: 'rgba(255, 255, 255, 0.4)' }}
+            <div className={`flex-none border-b border-white/30 transition-all duration-300 ${isCollapsed ? 'py-6' : 'p-4'}`}
+                style={{ background: 'rgba(255, 255, 255, 0.2)' }}
             >
                 <div className={`flex items-center justify-between w-full ${isCollapsed ? 'flex-col-reverse gap-3' : 'flex-row'}`}>
                     <div className={`flex items-center gap-2 ${isCollapsed ? 'flex-col-reverse' : ''}`}>
@@ -89,8 +89,8 @@ export default function RightPanel({
 
             {/* 2. CHAT SECTION (35% Height, hidden when collapsed) */}
             {!isCollapsed && (
-                <div className="h-[35%] min-h-[250px] border-b border-white/20 relative flex flex-col overflow-hidden"
-                    style={{ background: 'rgba(255, 255, 255, 0.25)' }}
+                <div className="h-[35%] min-h-[250px] border-b border-white/30 relative flex flex-col overflow-hidden"
+                    style={{ background: 'rgba(255, 255, 255, 0.1)' }}
                 >
                     <div className="flex-1 overflow-hidden relative">
                         <ChatPanel
@@ -114,8 +114,8 @@ export default function RightPanel({
                 ) : (
                     <>
                         {/* Analytics Header */}
-                        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between flex-none"
-                            style={{ background: 'rgba(255, 255, 255, 0.1)' }}
+                        <div className="px-4 py-3 border-b border-white/20 flex items-center justify-between flex-none"
+                            style={{ background: 'rgba(255, 255, 255, 0.05)' }}
                         >
                             <h3 className="text-sm font-semibold text-slate-800 tracking-tight flex items-center gap-2">
                                 <span className="text-blue-500">📊</span> Metrics & Insights
