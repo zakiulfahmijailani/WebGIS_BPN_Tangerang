@@ -1,86 +1,36 @@
-# Tangerang Buildings WebGIS
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-A production-ready WebGIS application for visualizing building footprints in Tangerang City. Built with Supabase (PostGIS), Node.js, and React.
+## Getting Started
 
-## 🚀 Tech Stack
+First, run the development server:
 
-- **Frontend**: React (Vite), React-Leaflet, TailwindCSS
-- **Backend**: Node.js, Express.js, `pg` (node-postgres)
-- **Database**: Supabase (PostgreSQL + PostGIS)
-
-## 📁 Project Structure
-
-```text
-/
-├── backend/          # Node.js/Express server
-├── frontend/         # React/Vite application
-└── README.md         # Documentation
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-## 🛠️ Setup Instructions
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-### 1. Database Setup (Supabase)
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-1. Create a new project on [Supabase](https://supabase.com/).
-2. Enable PostGIS extension by running this in the SQL Editor:
-   ```sql
-   CREATE EXTENSION IF NOT EXISTS postgis;
-   ```
-3. Upload your `tangerang_buildings.geojson` using `ogr2ogr`. Run the following command locally (ensure you have GDAL installed):
-   ```bash
-   ogr2ogr -f "PostgreSQL" PG:"host=db.[your-project-ref].supabase.co user=postgres password=[your-password] dbname=postgres" "tangerang_buildings.geojson" -nln tangerang_buildings -nlt PROMOTE_TO_MULTI
-   ```
-   > [!NOTE]
-   > Replace `[your-project-ref]` and `[your-password]` with your Supabase credentials.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-### 2. Backend Setup
+## Learn More
 
-1. Navigate to the `backend` folder:
-   ```bash
-   cd backend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create a `.env` file based on `.env.example` and add your Supabase `DATABASE_URL`.
-4. Start the server:
-   ```bash
-   npm run dev
-   ```
-   The backend will run on `http://localhost:5000`.
+To learn more about Next.js, take a look at the following resources:
 
-### 3. Frontend Setup
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-1. Navigate to the `frontend` folder:
-   ```bash
-   cd ../frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create a `.env` file based on `.env.example` (usually `VITE_API_URL=http://localhost:5000/api/buildings`).
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-   The application will be available at `http://localhost:5173`.
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## 🚀 Deployment to Vercel
+## Deploy on Vercel
 
-1.  Push your code to a GitHub repository.
-2.  Connect the repository to **Vercel**.
-3.  Add the following **Environment Variable** in Vercel settings:
-    - `DATABASE_URL`: Your Supabase connection string.
-4.  Vercel will automatically detect the `vercel.json` and deploy both the frontend and backend under a single URL.
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-## 📍 API Endpoints
-
-- `GET /api/buildings`: Returns building footprints as a GeoJSON FeatureCollection.
-
-## 🎨 Design Features
-
-- **Dark Mode UI**: Sleek, modern interface using Slate and Emerald color palettes.
-- **Interactive Map**: Hover effects, smooth popups, and custom styling for building layers.
-- **Performance**: Optimized SQL query using PostGIS `ST_AsGeoJSON` for efficient data transfer.
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
