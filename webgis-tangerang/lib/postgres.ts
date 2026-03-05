@@ -4,8 +4,8 @@ import { Pool } from 'pg';
 // This is used in API routes for executing raw PostGIS SQL queries
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 5,
-    idleTimeoutMillis: 30000,
+    max: 1,
+    idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 10000,
 });
 

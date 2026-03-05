@@ -57,7 +57,7 @@ export default function LeftSidebar({
         return (
             <div className="flex-shrink-0 w-[64px] h-full glass-dark-deep flex flex-col items-center text-slate-400 py-5 gap-1.5">
                 {/* Logo */}
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/25 mb-1 relative overflow-hidden">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 mb-1 relative overflow-hidden">
                     <Globe className="w-5 h-5 relative z-10" />
                     <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/10 rounded-xl" />
                 </div>
@@ -95,15 +95,15 @@ export default function LeftSidebar({
             {/* ── 1. HEADER ── */}
             <div className="px-5 py-5 flex items-center justify-between border-b border-white/5">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/25 relative overflow-hidden">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 relative overflow-hidden">
                         <Globe className="w-5 h-5 relative z-10" />
                         <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/10 rounded-xl" />
                     </div>
                     <div>
                         <h1 className="text-white font-extrabold text-[17px] leading-tight tracking-tight">
-                            GeoSpatial<span className="text-cyan-400">.ID</span>
+                            GeoSpatial<span className="text-emerald-400">.ID</span>
                         </h1>
-                        <p className="text-[11px] text-cyan-400/60 font-semibold uppercase tracking-[0.18em]">
+                        <p className="text-[11px] text-emerald-400/60 font-semibold uppercase tracking-[0.18em]">
                             Spatial Intelligence
                         </p>
                     </div>
@@ -120,7 +120,7 @@ export default function LeftSidebar({
                 <div>
                     <button
                         onClick={() => setAnalyzeOpen(!analyzeOpen)}
-                        className="w-full bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500/30 hover:to-blue-600/30 text-cyan-300 font-bold rounded-xl text-[15px] py-3 px-5 border border-cyan-500/20 hover:border-cyan-500/30 transition-all flex items-center justify-between shadow-lg shadow-cyan-500/5"
+                        className="w-full bg-gradient-to-r from-emerald-500/20 to-green-600/20 hover:from-emerald-500/30 hover:to-green-600/30 text-emerald-300 font-bold rounded-xl text-[15px] py-3 px-5 border border-emerald-500/20 hover:border-emerald-500/30 transition-all flex items-center justify-between shadow-lg shadow-emerald-500/5"
                     >
                         <span className="flex items-center gap-2.5">
                             <Plus className="w-5 h-5" /> Analyze
@@ -135,7 +135,7 @@ export default function LeftSidebar({
                                     disabled
                                     className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-500 rounded-xl transition-all opacity-50 cursor-not-allowed"
                                 >
-                                    <tool.icon className="w-5 h-5 text-cyan-600/40 flex-shrink-0" />
+                                    <tool.icon className="w-5 h-5 text-emerald-600/40 flex-shrink-0" />
                                     <div className="text-left">
                                         <p className="text-[14px] font-medium">{tool.label}</p>
                                         <p className="text-[11px] text-slate-600">{tool.desc}</p>
@@ -153,7 +153,7 @@ export default function LeftSidebar({
                         onClick={() => setDataCatalogueOpen(true)}
                         className="w-full flex items-center gap-3 px-4 py-3 text-[15px] font-semibold text-slate-300 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] rounded-xl border border-white/5 hover:border-white/10 transition-all group"
                     >
-                        <Database className="w-5 h-5 text-cyan-500/60 group-hover:text-cyan-400" />
+                        <Database className="w-5 h-5 text-emerald-500/60 group-hover:text-emerald-400" />
                         <span>Data Catalogue</span>
                         <span className="ml-auto text-[11px] text-slate-600 group-hover:text-slate-400">Browse →</span>
                     </button>
