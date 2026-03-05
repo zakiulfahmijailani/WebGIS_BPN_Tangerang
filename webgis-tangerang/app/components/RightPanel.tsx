@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import ChatPanel from "./ChatPanel";
-import AnalyticsPanel from "./AnalyticsPanel";
+import MetricsPanel from "./metrics/MetricsPanel";
 import { FlyToCommand } from "./MapLibreMap";
 import { PanelRightClose, PanelRight, MessageSquare, BarChart3 } from "lucide-react";
 
@@ -125,7 +125,7 @@ export default function RightPanel({
                         {/* Scrollable Analytics Content */}
                         <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
                             <div className="h-full relative -mx-4 -my-4">
-                                <AnalyticsPanel
+                                <MetricsPanel
                                     geojsonData={geojsonData}
                                     buildingsData={buildingsData}
                                     activeQuery={activeQuery}
