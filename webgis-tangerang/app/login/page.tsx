@@ -19,6 +19,13 @@ export default function LoginPage() {
         setLoading(true);
         setError(null);
 
+        // Hardcoded admin bypass
+        if (email === 'admin' && password === 'admin321') {
+            document.cookie = "webgis_bypass_auth=admin; path=/; max-age=604800"; // 7 days
+            window.location.href = '/'; // Force reload so middleware catches the new cookie
+            return;
+        }
+
         const { data, error: authError } = await supabase.auth.signInWithPassword({
             email,
             password,
@@ -70,17 +77,17 @@ export default function LoginPage() {
                     )}
                     <div>
                         <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                            Email
+                            Username / Email
                         </label>
                         <input
-                            type="email"
+                            type="text"
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full bg-white/60 border border-slate-200/50 rounded-xl px-4 py-3 text-sm 
                                        text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 
                                        focus:border-blue-500/50 transition-all backdrop-blur-sm"
-                            placeholder="nama@bpn.go.id"
+                            placeholder="admin atau nama@bpn.go.id"
                         />
                     </div>
                     <div>

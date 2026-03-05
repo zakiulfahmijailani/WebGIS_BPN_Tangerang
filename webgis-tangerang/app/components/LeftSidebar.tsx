@@ -49,7 +49,8 @@ export default function LeftSidebar({
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
-        router.push("/login");
+        document.cookie = "webgis_bypass_auth=; path=/; max-age=0";
+        window.location.href = "/login";
     };
 
     /* ─── COLLAPSED VIEW ─── */
